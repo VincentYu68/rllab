@@ -1,5 +1,5 @@
 
-
+import lasagne
 import lasagne.layers as L
 import lasagne.nonlinearities as LN
 import lasagne.init as LI
@@ -31,6 +31,22 @@ def wrapped_conv(*args, **kwargs):
     except Exception as e:
         print("falling back to default conv2d")
         return theano.tensor.nnet.conv2d(*args, **kwargs)
+
+class RBFLayer(L.Layer):
+    def __init__(self, incoming, num_units, bandwidth, W=lasagne.init.Normal(1), b=lasagne.init.Uniform(np.pi), **kwargs):
+        super(RBFLayer, self).__init__(incoming, **kwargs)
+        num_inputs = self.input_shape[1]
+        self.num_units = num_units
+        self.W = self.add_param(W, (num_inputs, num_units), name='W', trainable=False)
+        self.bandwidth = bandwidth
+        self.b = self.add_param(b, (num_units,), name='b', trainable=False)
+
+    def get_output_for(self, input, **kwargs):
+        return TT.sin(TT.dot(input, self.W) / self.bandwidth + self.b)
+
+    def get_output_shape_for(self, input_shape):
+        return (input_shape[0], self.num_units)
+
 
 
 class MLP(LasagnePowered, Serializable):
@@ -344,3 +360,60 @@ class ConvNetwork(object):
     @property
     def input_var(self):
         return self._l_in.input_var
+
+
+
+class RBFLinear(LasagnePowered, Serializable):
+    def __init__(self, output_dim, RBF_size, RBF_bandwidth, output_nonlinearity,
+                 output_W_init=LI.GlorotUniform(), output_b_init=LI.Constant(0.),
+                 name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False):
+
+        Serializable.quick_init(self, locals())
+
+        if name is None:
+            prefix = ""
+        else:
+            prefix = name + "_"
+
+        if input_layer is None:
+            l_in = L.InputLayer(shape=(None,) + input_shape, input_var=input_var)
+        else:
+            l_in = input_layer
+        self._layers = [l_in]
+        l_hid = RBFLayer(l_in, num_units=RBF_size, bandwidth = RBF_bandwidth)
+        self._layers.append(l_hid)
+
+        l_out = L.DenseLayer(
+            l_hid,
+            num_units=output_dim,
+            nonlinearity=output_nonlinearity,
+            name="%soutput" % (prefix,),
+            W=output_W_init,
+            b=output_b_init,
+        )
+        self._layers.append(l_out)
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    # @property
+    # def input_var(self):
+    #     return self._l_in.input_var
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output

@@ -222,6 +222,12 @@ def save_itr_params(itr, params):
             # override previous params
             file_name = osp.join(_snapshot_dir, 'params.pkl')
             joblib.dump(params, file_name, compress=3)
+            if 'policy' in params:
+                file_name = osp.join(_snapshot_dir, 'policy.pkl')
+                joblib.dump(params['policy'], file_name, compress=3)
+                if itr % 20 == 0:
+                    file_name = osp.join(_snapshot_dir, 'policy_%d.pkl' % itr)
+                    joblib.dump(params['policy'], file_name, compress=3)
         elif _snapshot_mode == "gap":
             if itr % _snapshot_gap == 0:
                 file_name = osp.join(_snapshot_dir, 'itr_%d.pkl' % itr)
