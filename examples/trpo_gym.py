@@ -7,13 +7,14 @@ from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
 
 
+
 def run_task(*_):
-    env = normalize(GymEnv("DartReacher-v1"))
+    env = normalize(GymEnv("DartHopper-v1"))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(32, 32),
+        hidden_sizes=(64, 64),
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -22,11 +23,13 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=20000,
+        batch_size=10000,
         max_path_length=env.horizon,
         n_itr=200,
         discount=0.99,
         step_size=0.01,
+        epopt_epsilon = 0.1,
+        epopt_after_iter = 0,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
         # plot=True,
     )
@@ -36,7 +39,7 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=0,
+    n_parallel=4,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed

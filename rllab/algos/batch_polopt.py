@@ -60,6 +60,9 @@ class BatchPolopt(RLAlgorithm):
             whole_paths=True,
             sampler_cls=None,
             sampler_args=None,
+            # eopopt related stuff
+            epopt_epsilon = 1.0,
+            epopt_after_iter = 100,
             **kwargs
     ):
         """
@@ -98,6 +101,9 @@ class BatchPolopt(RLAlgorithm):
         self.positive_adv = positive_adv
         self.store_paths = store_paths
         self.whole_paths = whole_paths
+        self.epopt_epsilon = epopt_epsilon
+        self.epopt_after_iter = epopt_after_iter
+
         if sampler_cls is None:
             sampler_cls = BatchSampler
         if sampler_args is None:

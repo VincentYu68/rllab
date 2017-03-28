@@ -65,6 +65,23 @@ class BaseSampler(Sampler):
             baselines.append(path_baselines[:-1])
             returns.append(path["returns"])
 
+        if hasattr(self.algo, 'epopt_epsilon'):
+            if self.algo.epopt_epsilon < 1.0 and self.algo.epopt_after_iter <= itr:
+                # prune the paths
+                target_path_size = len(paths) * self.algo.epopt_epsilon
+                sorted_indices = np.argsort([path["returns"][0] for path in paths])
+                idx = 0
+                si_idx = 0
+                while True:
+                    if sorted_indices[si_idx] > target_path_size:
+                        paths.pop(idx)
+                        idx -= 1
+                    idx += 1
+                    si_idx += 1
+                    if idx >= len(paths):
+                        break
+
+
         ev = special.explained_variance_1d(
             np.concatenate(baselines),
             np.concatenate(returns)

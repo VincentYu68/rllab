@@ -68,7 +68,7 @@ class GaussianRBFPolicy(GaussianMLPPolicy):
                 output_dim=action_dim,
                 output_nonlinearity=output_nonlinearity,
                 RBF_size=500,
-                RBF_bandwidth=100.0,
+                RBF_bandwidth=10.0,
             )
         self._mean_network = mean_network
 

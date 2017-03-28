@@ -8,7 +8,7 @@ from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
 
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1"))
+    env = normalize(GymEnv("DartReacher-v1"))
 
     policy = GaussianRBFPolicy(
         env_spec=env.spec,
