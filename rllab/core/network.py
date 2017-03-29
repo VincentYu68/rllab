@@ -6,7 +6,7 @@ import lasagne.init as LI
 import theano.tensor as TT
 import theano
 from rllab.misc import ext
-from rllab.core.lasagne_layers import OpLayer
+from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer
 from rllab.core.lasagne_powered import LasagnePowered
 from rllab.core.serializable import Serializable
 
@@ -32,20 +32,6 @@ def wrapped_conv(*args, **kwargs):
         print("falling back to default conv2d")
         return theano.tensor.nnet.conv2d(*args, **kwargs)
 
-class RBFLayer(L.Layer):
-    def __init__(self, incoming, num_units, bandwidth, W=lasagne.init.Normal(1), b=lasagne.init.Uniform(np.pi), **kwargs):
-        super(RBFLayer, self).__init__(incoming, **kwargs)
-        num_inputs = self.input_shape[1]
-        self.num_units = num_units
-        self.W = self.add_param(W, (num_inputs, num_units), name='W', trainable=False)
-        self.bandwidth = bandwidth
-        self.b = self.add_param(b, (num_units,), name='b', trainable=False)
-
-    def get_output_for(self, input, **kwargs):
-        return TT.sin(TT.dot(input, self.W) / self.bandwidth + self.b)
-
-    def get_output_shape_for(self, input_shape):
-        return (input_shape[0], self.num_units)
 
 
 
@@ -391,6 +377,135 @@ class RBFLinear(LasagnePowered, Serializable):
             W=output_W_init,
             b=output_b_init,
         )
+        self._layers.append(l_out)
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    # @property
+    # def input_var(self):
+    #     return self._l_in.input_var
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
+
+
+# Hierarchical MLP
+# Experimental for walker2d case only
+# Highly Engineered!
+class HMLP(LasagnePowered, Serializable):
+    def __init__(self, hidden_sizes, hidden_nonlinearity, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
+                 subnet_size = (16,), subnet_nonlinearity=LN.tanh, subnet_W_init=LI.GlorotUniform(), subnet_b_init=LI.Constant(0.),
+                 name=None, input_shape=None, option_dim = 1):
+
+        Serializable.quick_init(self, locals())
+
+        if name is None:
+            prefix = ""
+        else:
+            prefix = name + "_"
+
+        l_in = L.InputLayer(shape=(None,) + input_shape)
+        self._layers = [l_in]
+        l_hid = l_in
+        for idx, hidden_size in enumerate(hidden_sizes):
+            l_hid = L.DenseLayer(
+                l_hid,
+                num_units=hidden_size,
+                nonlinearity=hidden_nonlinearity,
+                name="%shidden_%d" % (prefix, idx),
+                W=hidden_W_init,
+                b=hidden_b_init,
+            )
+            self._layers.append(l_hid)
+
+        l_leg1 = SplitLayer(l_in, [2,3,4,11,12,13])
+        l_option1 = L.DenseLayer(
+                l_hid,
+                num_units=option_dim,
+                nonlinearity=hidden_nonlinearity,
+                name="%soption_1" % (prefix),
+                W=hidden_W_init,
+                b=hidden_b_init,
+            )
+        l_concat1 = L.concat([l_leg1, l_option1])
+        l_leg2 = SplitLayer(l_in, [5,6,7, 14,15,16])
+        l_option2 = L.DenseLayer(
+                l_hid,
+                num_units=option_dim,
+                nonlinearity=hidden_nonlinearity,
+                name="%soption_2" % (prefix),
+                W=hidden_W_init,
+                b=hidden_b_init,
+            )
+        l_concat2 = L.concat([l_leg2, l_option2])
+        self._layers.append(l_leg1)
+        self._layers.append(l_option1)
+        self._layers.append(l_concat1)
+        self._layers.append(l_leg2)
+        self._layers.append(l_option2)
+        self._layers.append(l_concat2)
+
+        l_snet = l_concat1
+        for idx, size in enumerate(subnet_size):
+            l_snet = L.DenseLayer(
+                l_snet,
+                num_units=size,
+                nonlinearity=subnet_nonlinearity,
+                name="%ssnet_1_%d" % (prefix, idx),
+                W=subnet_W_init,
+                b=subnet_b_init,
+            )
+            self._layers.append(l_snet)
+        l_out1 = L.DenseLayer(
+            l_snet,
+            num_units=3,
+            nonlinearity=None,
+            name="%soutput1" % (prefix,),
+            W=subnet_W_init,
+            b=subnet_b_init,
+        )
+        self._layers.append(l_out1)
+
+        l_snet = l_concat2
+        for idx, size in enumerate(subnet_size):
+            l_snet = L.DenseLayer(
+                l_snet,
+                num_units=size,
+                nonlinearity=subnet_nonlinearity,
+                name="%ssnet_2_%d" % (prefix, idx),
+                W=subnet_W_init,
+                b=subnet_b_init,
+            )
+            self._layers.append(l_snet)
+        l_out2 = L.DenseLayer(
+            l_snet,
+            num_units=3,
+            nonlinearity=None,
+            name="%soutput2" % (prefix,),
+            W=subnet_W_init,
+            b=subnet_b_init,
+        )
+        self._layers.append(l_out2)
+
+        l_out = L.concat([l_out1, l_out2])
+        self._layers.append(l_out)
+
         self._layers.append(l_out)
         self._l_in = l_in
         self._l_out = l_out

@@ -4,7 +4,34 @@ import lasagne.layers as L
 import lasagne
 import theano
 import theano.tensor as TT
+import numpy as np
 
+# take part of the input as output
+class SplitLayer(L.Layer):
+    def __init__(self, incoming, select_idx, **kwargs):
+        super(SplitLayer, self).__init__(incoming, **kwargs)
+        self.select_idx = select_idx
+
+    def get_output_for(self, input, **kwargs):
+        return input[:, self.select_idx]
+
+    def get_output_shape_for(self, input_shape):
+        return (input_shape[0], len(self.select_idx))
+
+class RBFLayer(L.Layer):
+    def __init__(self, incoming, num_units, bandwidth, W=lasagne.init.Normal(1), b=lasagne.init.Uniform(np.pi), **kwargs):
+        super(RBFLayer, self).__init__(incoming, **kwargs)
+        num_inputs = self.input_shape[1]
+        self.num_units = num_units
+        self.W = self.add_param(W, (num_inputs, num_units), name='W', trainable=False)
+        self.bandwidth = bandwidth
+        self.b = self.add_param(b, (num_units,), name='b', trainable=False)
+
+    def get_output_for(self, input, **kwargs):
+        return TT.sin(TT.dot(input, self.W) / self.bandwidth + self.b)
+
+    def get_output_shape_for(self, input_shape):
+        return (input_shape[0], self.num_units)
 
 class ParamLayer(L.Layer):
 
