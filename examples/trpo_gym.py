@@ -6,10 +6,10 @@ from rllab.misc.instrument import run_experiment_lite
 from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
 
-
+import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1"))
+    env = normalize(GymEnv("Walker2d-v1"))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
@@ -17,18 +17,20 @@ def run_task(*_):
         hidden_sizes=(64, 64),
     )
 
+    #policy = joblib.load('../data/local/experiment/experiment_2017_03_28_08_30_39_0001_hopper_3#/policy.pkl')
+
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
     algo = TRPO(
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=10000,
+        batch_size=50000,
         max_path_length=env.horizon,
-        n_itr=200,
+        n_itr=2500,
         discount=0.99,
         step_size=0.01,
-        epopt_epsilon = 0.1,
+        epopt_epsilon = 1.0,
         epopt_after_iter = 0,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
         # plot=True,
@@ -39,7 +41,7 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=4,
+    n_parallel=12,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
