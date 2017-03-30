@@ -10,12 +10,12 @@ from rllab.policies.gaussian_hmlp_policy import GaussianHMLPPolicy
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("Walker2d-v1"))
+    env = normalize(GymEnv("DartWalker2d-v1"))
 
     policy = GaussianHMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64,),
+        hidden_sizes=(64,16),
     )
 
 

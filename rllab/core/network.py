@@ -411,7 +411,7 @@ class RBFLinear(LasagnePowered, Serializable):
 class HMLP(LasagnePowered, Serializable):
     def __init__(self, hidden_sizes, hidden_nonlinearity, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
                  subnet_size = (16,), subnet_nonlinearity=LN.tanh, subnet_W_init=LI.GlorotUniform(), subnet_b_init=LI.Constant(0.),
-                 name=None, input_shape=None, option_dim = 1):
+                 name=None, input_shape=None, option_dim = 2):
 
         Serializable.quick_init(self, locals())
 
@@ -462,6 +462,7 @@ class HMLP(LasagnePowered, Serializable):
         self._layers.append(l_concat2)
 
         l_snet = l_concat1
+        l_snet2 = l_concat2
         for idx, size in enumerate(subnet_size):
             l_snet = L.DenseLayer(
                 l_snet,
@@ -472,6 +473,16 @@ class HMLP(LasagnePowered, Serializable):
                 b=subnet_b_init,
             )
             self._layers.append(l_snet)
+
+            l_snet2 = L.DenseLayer(
+                l_snet2,
+                num_units=size,
+                nonlinearity=subnet_nonlinearity,
+                name="%ssnet_2_%d" % (prefix, idx),
+                W=l_snet.W,
+                b=l_snet.b,
+            )
+            self._layers.append(l_snet2)
         l_out1 = L.DenseLayer(
             l_snet,
             num_units=3,
@@ -482,7 +493,7 @@ class HMLP(LasagnePowered, Serializable):
         )
         self._layers.append(l_out1)
 
-        l_snet = l_concat2
+        '''l_snet = l_concat2
         for idx, size in enumerate(subnet_size):
             l_snet = L.DenseLayer(
                 l_snet,
@@ -492,9 +503,9 @@ class HMLP(LasagnePowered, Serializable):
                 W=subnet_W_init,
                 b=subnet_b_init,
             )
-            self._layers.append(l_snet)
+            self._layers.append(l_snet)'''
         l_out2 = L.DenseLayer(
-            l_snet,
+            l_snet2,
             num_units=3,
             nonlinearity=None,
             name="%soutput2" % (prefix,),
