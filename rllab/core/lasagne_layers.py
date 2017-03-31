@@ -6,6 +6,49 @@ import theano
 import theano.tensor as TT
 import numpy as np
 
+class ElemwiseMultLayer(L.ElemwiseMergeLayer):
+    """
+    This layer performs an elementwise sum of its input layers.
+    It requires all input layers to have the same output shape.
+
+    Parameters
+    ----------
+    incomings : a list of :class:`Layer` instances or tuples
+        the layers feeding into this layer, or expected input shapes,
+        with all incoming shapes being equal
+
+    coeffs: list or scalar
+        A same-sized list of coefficients, or a single coefficient that
+        is to be applied to all instances. By default, these will not
+        be included in the learnable parameters of this layer.
+
+    Notes
+    -----
+    Depending on your architecture, this can be used to avoid the more
+    costly :class:`ConcatLayer`. For example, instead of concatenating layers
+    before a :class:`DenseLayer`, insert separate :class:`DenseLayer` instances
+    of the same number of output units and add them up afterwards. (This avoids
+    the copy operations in concatenation, but splits up the dot product.)
+    """
+    def __init__(self, incomings, coeffs=1, **kwargs):
+        super(ElemwiseMultLayer, self).__init__(incomings, TT.mul, **kwargs)
+        if isinstance(coeffs, list):
+            if len(coeffs) != len(incomings):
+                raise ValueError("Mismatch: got %d coeffs for %d incomings" %
+                                 (len(coeffs), len(incomings)))
+        else:
+            coeffs = [coeffs] * len(incomings)
+
+        self.coeffs = coeffs
+
+    def get_output_for(self, inputs, **kwargs):
+        # if needed multiply each input by its coefficient
+        inputs = [input * coeff if coeff != 1 else input
+                  for coeff, input in zip(self.coeffs, inputs)]
+
+        # pass scaled inputs to the super class for summing
+        return super(ElemwiseMultLayer, self).get_output_for(inputs, **kwargs)
+
 # take part of the input as output
 class SplitLayer(L.Layer):
     def __init__(self, incoming, select_idx, **kwargs):
@@ -17,6 +60,7 @@ class SplitLayer(L.Layer):
 
     def get_output_shape_for(self, input_shape):
         return (input_shape[0], len(self.select_idx))
+
 
 class RBFLayer(L.Layer):
     def __init__(self, incoming, num_units, bandwidth, W=lasagne.init.Normal(1), b=lasagne.init.Uniform(np.pi), **kwargs):

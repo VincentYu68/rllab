@@ -6,7 +6,7 @@ import lasagne.init as LI
 import theano.tensor as TT
 import theano
 from rllab.misc import ext
-from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer
+from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer
 from rllab.core.lasagne_powered import LasagnePowered
 from rllab.core.serializable import Serializable
 
@@ -444,7 +444,9 @@ class HMLP(LasagnePowered, Serializable):
                 W=hidden_W_init,
                 b=hidden_b_init,
             )
-        l_concat1 = L.concat([l_leg1, l_option1])
+        l_dup1 = L.concat([l_option1, l_option1, l_option1])
+        l_concat1 = L.ElemwiseSumLayer([l_leg1, l_dup1])
+
         l_leg2 = SplitLayer(l_in, [5,6,7, 14,15,16])
         #l_leg2 = SplitLayer(l_in, [2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16])
         l_option2 = L.DenseLayer(
@@ -455,13 +457,18 @@ class HMLP(LasagnePowered, Serializable):
                 W=hidden_W_init,
                 b=hidden_b_init,
             )
-        l_concat2 = L.concat([l_leg2, l_option2])
+        #l_concat2 = L.concat([l_leg2, l_option2])
+        l_dup2 = L.concat([l_option2, l_option2, l_option2])
+        l_concat2 = L.ElemwiseSumLayer([l_leg2, l_dup2])
         self._layers.append(l_leg1)
         self._layers.append(l_option1)
         self._layers.append(l_concat1)
         self._layers.append(l_leg2)
         self._layers.append(l_option2)
         self._layers.append(l_concat2)
+
+        self._layers.append(l_dup1)
+        self._layers.append(l_dup2)
 
         l_snet = l_concat1
         l_snet2 = l_concat2
