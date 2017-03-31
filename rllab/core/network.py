@@ -410,7 +410,7 @@ class RBFLinear(LasagnePowered, Serializable):
 # Highly Engineered!
 class HMLP(LasagnePowered, Serializable):
     def __init__(self, hidden_sizes, hidden_nonlinearity, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
-                 subnet_size = (16,), subnet_nonlinearity=LN.tanh, subnet_W_init=LI.GlorotUniform(), subnet_b_init=LI.Constant(0.),
+                 subnet_size = (16,16), subnet_nonlinearity=LN.tanh, subnet_W_init=LI.GlorotUniform(), subnet_b_init=LI.Constant(0.),
                  name=None, input_shape=None, option_dim = 2):
 
         Serializable.quick_init(self, locals())
@@ -435,6 +435,7 @@ class HMLP(LasagnePowered, Serializable):
             self._layers.append(l_hid)
 
         l_leg1 = SplitLayer(l_in, [2,3,4,11,12,13])
+        #l_leg1 = SplitLayer(l_in, [2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16])
         l_option1 = L.DenseLayer(
                 l_hid,
                 num_units=option_dim,
@@ -445,6 +446,7 @@ class HMLP(LasagnePowered, Serializable):
             )
         l_concat1 = L.concat([l_leg1, l_option1])
         l_leg2 = SplitLayer(l_in, [5,6,7, 14,15,16])
+        #l_leg2 = SplitLayer(l_in, [2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16])
         l_option2 = L.DenseLayer(
                 l_hid,
                 num_units=option_dim,
@@ -509,8 +511,8 @@ class HMLP(LasagnePowered, Serializable):
             num_units=3,
             nonlinearity=None,
             name="%soutput2" % (prefix,),
-            W=subnet_W_init,
-            b=subnet_b_init,
+            W=l_out1.W,
+            b=l_out1.b,
         )
         self._layers.append(l_out2)
 
@@ -522,6 +524,12 @@ class HMLP(LasagnePowered, Serializable):
         self._l_out = l_out
         # self._input_var = l_in.input_var
         self._output = L.get_output(l_out)
+
+        self.hlc_signal1 = L.get_output(l_option1)
+        self.hlc_signal2 = L.get_output(l_option2)
+        self.leg1_part = L.get_output(l_leg1)
+        self.leg2_part = L.get_output(l_leg2)
+
         LasagnePowered.__init__(self, [l_out])
 
     @property

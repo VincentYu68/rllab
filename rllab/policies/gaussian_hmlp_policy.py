@@ -101,8 +101,20 @@ class GaussianHMLPPolicy(GaussianMLPPolicy):
             outputs=[mean_var, log_std_var],
         )
 
+        self._f_dist = ext.compile_function(
+            inputs=[obs_var],
+            outputs=[mean_var, log_std_var],
+        )
+
+        self.hidden_signals = ext.compile_function(
+            inputs=[obs_var],
+            outputs=[mean_network.hlc_signal1, mean_network.hlc_signal2, mean_network.leg1_part, mean_network.leg2_part]
+        )
 
 
+    def get_hidden_sig(self, observation):
+        flat_obs = self.observation_space.flatten(observation)
+        return self.hidden_signals([flat_obs])
 
 
 

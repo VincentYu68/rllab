@@ -27,7 +27,7 @@ def run_task(*_):
         baseline=baseline,
         batch_size=50000,
         max_path_length=env.horizon,
-        n_itr=500,
+        n_itr=1000,
         discount=0.99,
         step_size=0.01,
         epopt_epsilon = 1.0,
@@ -37,11 +37,10 @@ def run_task(*_):
     )
     algo.train()
 
-
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=6,
+    n_parallel=10,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
