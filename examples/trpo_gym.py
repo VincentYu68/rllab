@@ -9,7 +9,7 @@ from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
 import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker2d-v1"))
+    env = normalize(GymEnv("DartWalker3d-v1"))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
@@ -47,6 +47,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    exp_prefix='Walker_trpo',
+    exp_prefix='walker3d_trpo',
     # plot=True,
 )

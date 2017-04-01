@@ -37,6 +37,10 @@ class GaussianHMLPPolicy(GaussianMLPPolicy):
             mean_network=None,
             std_network=None,
             dist_cls=DiagonalGaussian,
+            subnet_split1=[2, 3, 4, 11, 12, 13],
+            subnet_split2=[5, 6, 7, 14, 15, 16],
+            sub_out_dim=3,
+            option_dim=4,
     ):
 
         Serializable.quick_init(self, locals())
@@ -51,6 +55,10 @@ class GaussianHMLPPolicy(GaussianMLPPolicy):
                 hidden_sizes,
                 hidden_nonlinearity,
                 input_shape=(obs_dim,),
+                subnet_split1=subnet_split1,
+                subnet_split2=subnet_split2,
+                sub_out_dim=sub_out_dim,
+                option_dim=option_dim,
             )
         self._mean_network = mean_network
 

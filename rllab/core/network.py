@@ -411,7 +411,7 @@ class RBFLinear(LasagnePowered, Serializable):
 class HMLP(LasagnePowered, Serializable):
     def __init__(self, hidden_sizes, hidden_nonlinearity, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
                  subnet_size = (16,16), subnet_nonlinearity=LN.tanh, subnet_W_init=LI.GlorotUniform(), subnet_b_init=LI.Constant(0.),
-                 name=None, input_shape=None, option_dim = 2):
+                 name=None, input_shape=None, option_dim = 2, subnet_split1 = [2,3,4,11,12,13], subnet_split2=[5,6,7, 14,15,16], sub_out_dim = 3):
 
         Serializable.quick_init(self, locals())
 
@@ -434,7 +434,7 @@ class HMLP(LasagnePowered, Serializable):
             )
             self._layers.append(l_hid)
 
-        l_leg1 = SplitLayer(l_in, [2,3,4,11,12,13])
+        l_leg1 = SplitLayer(l_in, subnet_split1)
         #l_leg1 = SplitLayer(l_in, [2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16])
         l_option1 = L.DenseLayer(
                 l_hid,
@@ -444,10 +444,11 @@ class HMLP(LasagnePowered, Serializable):
                 W=hidden_W_init,
                 b=hidden_b_init,
             )
-        l_dup1 = L.concat([l_option1, l_option1, l_option1])
+        dup_rep = int(len(subnet_split1) / option_dim)
+        l_dup1 = L.concat([l_option1]*dup_rep)
         l_concat1 = L.ElemwiseSumLayer([l_leg1, l_dup1])
 
-        l_leg2 = SplitLayer(l_in, [5,6,7, 14,15,16])
+        l_leg2 = SplitLayer(l_in, subnet_split2)
         #l_leg2 = SplitLayer(l_in, [2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16])
         l_option2 = L.DenseLayer(
                 l_hid,
@@ -458,7 +459,7 @@ class HMLP(LasagnePowered, Serializable):
                 b=hidden_b_init,
             )
         #l_concat2 = L.concat([l_leg2, l_option2])
-        l_dup2 = L.concat([l_option2, l_option2, l_option2])
+        l_dup2 = L.concat([l_option2]*dup_rep)
         l_concat2 = L.ElemwiseSumLayer([l_leg2, l_dup2])
         self._layers.append(l_leg1)
         self._layers.append(l_option1)
@@ -494,7 +495,7 @@ class HMLP(LasagnePowered, Serializable):
             self._layers.append(l_snet2)
         l_out1 = L.DenseLayer(
             l_snet,
-            num_units=3,
+            num_units=sub_out_dim,
             nonlinearity=None,
             name="%soutput1" % (prefix,),
             W=subnet_W_init,
@@ -515,7 +516,7 @@ class HMLP(LasagnePowered, Serializable):
             self._layers.append(l_snet)'''
         l_out2 = L.DenseLayer(
             l_snet2,
-            num_units=3,
+            num_units=sub_out_dim,
             nonlinearity=None,
             name="%soutput2" % (prefix,),
             W=l_out1.W,

@@ -16,6 +16,10 @@ def run_task(*_):
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(64,16),
+        #subnet_split1=[5, 6, 7, 8, 9, 21, 22, 23, 24, 25],
+        #subnet_split2=[10, 11, 12, 13, 14, 26, 27, 28, 29, 30],
+        sub_out_dim=3,
+        option_dim=2,
     )
 
 
@@ -46,6 +50,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    exp_prefix='Walker_dupsumproprio'
+    exp_prefix='Walker2d_dupsum_2_proprio'
     # plot=True,
 )
