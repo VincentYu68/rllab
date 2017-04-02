@@ -118,9 +118,10 @@ class BatchPolopt(RLAlgorithm):
     def shutdown_worker(self):
         self.sampler.shutdown_worker()
 
-    def train(self):
+    def train(self, continue_learning=False):
         self.start_worker()
-        self.init_opt()
+        if not continue_learning:
+            self.init_opt()
         for itr in range(self.current_itr, self.n_itr):
             with logger.prefix('itr #%d | ' % itr):
                 paths = self.sampler.obtain_samples(itr)
@@ -143,6 +144,7 @@ class BatchPolopt(RLAlgorithm):
                                   "continue...")
 
         self.shutdown_worker()
+
 
     def log_diagnostics(self, paths):
         self.env.log_diagnostics(paths)

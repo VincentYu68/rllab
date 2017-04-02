@@ -17,7 +17,11 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
         env.render()
     while path_length < max_path_length:
         a, agent_info = agent.get_action(o)
-        next_o, r, d, env_info = env.step(a)
+        if hasattr(agent, '_lowlevelnetwork'):
+            lowa = agent.lowlevel_action(o, a)
+            next_o, r, d, env_info = env.step(lowa)
+        else:
+            next_o, r, d, env_info = env.step(a)
         observations.append(env.observation_space.flatten(o))
         rewards.append(r)
         actions.append(env.action_space.flatten(a))
