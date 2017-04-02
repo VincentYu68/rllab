@@ -1,3 +1,5 @@
+__author__ = 'yuwenhao'
+
 from rllab.algos.trpo import TRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.gym_env import GymEnv
@@ -6,13 +8,14 @@ from rllab.misc.instrument import run_experiment_lite
 from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
 from rllab.policies.gaussian_hmlp_policy import GaussianHMLPPolicy
+from rllab.policies.gaussian_hrl_prop_policy import GaussianHMLPPropPolicy
 
 import numpy as np
 
 def run_task(*_):
     env = normalize(GymEnv("DartWalker2d-v1"))
 
-    policy = GaussianHMLPPolicy(
+    policy = GaussianHMLPPropPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(64,16),
@@ -51,6 +54,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    exp_prefix='Walker2d_dupsum_2'
+    exp_prefix='Walker2d_alt_proprio'
     # plot=True
 )

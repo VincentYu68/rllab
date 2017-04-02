@@ -449,14 +449,14 @@ class HMLP_NonConcat(LasagnePowered, Serializable):
         l_option1 = SplitLayer(l_options, range(0, option_dim))
         dup_rep = int(len(subnet_split1) / option_dim)
         l_dup1 = L.concat([l_option1]*dup_rep)
-        l_concat1 = L.ElemwiseSumLayer([l_leg1, l_dup1])
+        l_concat1 = L.concat([L.ElemwiseSumLayer([l_leg1, l_dup1]), l_option1])
 
         l_leg2 = SplitLayer(l_in, subnet_split2)
         #l_leg2 = SplitLayer(l_in, [2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16])
         l_option2 = SplitLayer(l_options, range(option_dim, 2*option_dim))
         #l_concat2 = L.concat([l_leg2, l_option2])
         l_dup2 = L.concat([l_option2]*dup_rep)
-        l_concat2 = L.ElemwiseSumLayer([l_leg2, l_dup2])
+        l_concat2 = L.concat([L.ElemwiseSumLayer([l_leg2, l_dup2]), l_option2])
         self._layers.append(l_options)
         self._layers.append(l_leg1)
         self._layers.append(l_option1)
@@ -829,6 +829,134 @@ class LLC(LasagnePowered, Serializable):
         self.leg2_part = L.get_output(l_leg2)
 
         LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
+
+
+class HMLP_PROP(LasagnePowered, Serializable):
+    def __init__(self, hidden_sizes, hidden_nonlinearity, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
+                 subnet_size = (16,16), subnet_nonlinearity=LN.tanh, subnet_W_init=LI.GlorotUniform(), subnet_b_init=LI.Constant(0.),
+                 name=None, input_shape=None, option_dim = 2, subnet_split1 = [2,3,4,11,12,13], subnet_split2=[5,6,7, 14,15,16], sub_out_dim = 3):
+
+        Serializable.quick_init(self, locals())
+
+        self.use_proprioceptive_sensing = theano.shared(1)
+
+        if name is None:
+            prefix = ""
+        else:
+            prefix = name + "_"
+
+        l_in = L.InputLayer(shape=(None,) + input_shape)
+        self._layers = [l_in]
+        l_hid = l_in
+        for idx, hidden_size in enumerate(hidden_sizes):
+            l_hid = L.DenseLayer(
+                l_hid,
+                num_units=hidden_size,
+                nonlinearity=hidden_nonlinearity,
+                name="%shidden_%d" % (prefix, idx),
+                W=hidden_W_init,
+                b=hidden_b_init,
+            )
+            self._layers.append(l_hid)
+        l_hid.get_params()
+
+        l_options = L.DenseLayer(
+                l_hid,
+                num_units=option_dim*2,
+                nonlinearity=hidden_nonlinearity,
+                name="%soptions" % (prefix),
+                W=hidden_W_init,
+                b=hidden_b_init,
+            )
+
+        l_leg1 = SplitLayer(l_in, subnet_split1, scale=self.use_proprioceptive_sensing)
+        l_option1 = SplitLayer(l_options, range(0, option_dim))
+        l_concat1 = L.concat([l_leg1, l_option1])
+
+        l_leg2 = SplitLayer(l_in, subnet_split2, scale=self.use_proprioceptive_sensing)
+        l_option2 = SplitLayer(l_options, range(option_dim, 2*option_dim))
+        l_concat2 = L.concat([l_leg2, l_option2])
+        self._layers.append(l_options)
+        self._layers.append(l_leg1)
+        self._layers.append(l_option1)
+        self._layers.append(l_concat1)
+        self._layers.append(l_leg2)
+        self._layers.append(l_option2)
+        self._layers.append(l_concat2)
+
+        l_snet = l_concat1
+        l_snet2 = l_concat2
+        for idx, size in enumerate(subnet_size):
+            l_snet = L.DenseLayer(
+                l_snet,
+                num_units=size,
+                nonlinearity=subnet_nonlinearity,
+                name="%ssnet_1_%d" % (prefix, idx),
+                W=subnet_W_init,
+                b=subnet_b_init,
+            )
+            self._layers.append(l_snet)
+
+            l_snet2 = L.DenseLayer(
+                l_snet2,
+                num_units=size,
+                nonlinearity=subnet_nonlinearity,
+                name="%ssnet_2_%d" % (prefix, idx),
+                W=l_snet.W,
+                b=l_snet.b,
+            )
+            self._layers.append(l_snet2)
+        l_out1 = L.DenseLayer(
+            l_snet,
+            num_units=sub_out_dim,
+            nonlinearity=None,
+            name="%soutput1" % (prefix,),
+            W=subnet_W_init,
+            b=subnet_b_init,
+        )
+        self._layers.append(l_out1)
+
+        l_out2 = L.DenseLayer(
+            l_snet2,
+            num_units=sub_out_dim,
+            nonlinearity=None,
+            name="%soutput2" % (prefix,),
+            W=l_out1.W,
+            b=l_out1.b,
+        )
+        self._layers.append(l_out2)
+
+        l_out = L.concat([l_out1, l_out2])
+        self._layers.append(l_out)
+
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+
+        LasagnePowered.__init__(self, [l_out])
+
+    def set_use_propsensing(self, use_prop):
+        if use_prop:
+            self.use_proprioceptive_sensing.set_value(1)
+        else:
+            self.use_proprioceptive_sensing.set_value(0)
 
     @property
     def input_layer(self):

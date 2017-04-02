@@ -51,12 +51,16 @@ class ElemwiseMultLayer(L.ElemwiseMergeLayer):
 
 # take part of the input as output
 class SplitLayer(L.Layer):
-    def __init__(self, incoming, select_idx, **kwargs):
+    def __init__(self, incoming, select_idx, scale = None, **kwargs):
         super(SplitLayer, self).__init__(incoming, **kwargs)
         self.select_idx = select_idx
+        self.scale = scale
 
     def get_output_for(self, input, **kwargs):
-        return input[:, self.select_idx]
+        if self.scale is None:
+            return input[:, self.select_idx]
+        else:
+            return input[:, self.select_idx] * self.scale
 
     def get_output_shape_for(self, input_shape):
         return (input_shape[0], len(self.select_idx))

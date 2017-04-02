@@ -42,7 +42,7 @@ def run_task(*_):
         baseline=baseline,
         batch_size=500,
         max_path_length=env.horizon,
-        n_itr=10,
+        n_itr=2,
         discount=0.99,
         step_size=0.01,
         epopt_epsilon = 1.0,
@@ -57,7 +57,7 @@ def run_task(*_):
         baseline=baseline,
         batch_size=500,
         max_path_length=env.horizon,
-        n_itr=10,
+        n_itr=2,
         discount=0.99,
         step_size=0.01,
         epopt_epsilon = 1.0,
@@ -66,13 +66,13 @@ def run_task(*_):
         # plot=True,
     )
 
-    # sync the weights
-    hrl_pol_param = policy_int._mean_network.get_params()
-    hlc_param = policy_sep._mean_network.get_params()
-    llc_param = policy_sep._lowlevelnetwork.get_params()
-
     # copy parameter from integrated controller to separate controller
     def int2sep():
+        # sync the weights
+        hrl_pol_param = policy_int._mean_network.get_params()
+        hlc_param = policy_sep._mean_network.get_params()
+        llc_param = policy_sep._lowlevelnetwork.get_params()
+
         for param in hlc_param:
             for hrl_param in hrl_pol_param:
                 if param.name == hrl_param.name:
@@ -85,6 +85,9 @@ def run_task(*_):
 
     # copy parameter from separate controller to integrated controller
     def sep2int():
+        hrl_pol_param = policy_int._mean_network.get_params()
+        hlc_param = policy_sep._mean_network.get_params()
+        llc_param = policy_sep._lowlevelnetwork.get_params()
         for param in hrl_pol_param:
             for hrl_param in hlc_param:
                 if param.name == hrl_param.name:
@@ -100,13 +103,14 @@ def run_task(*_):
         algo2.current_itr=0
         algo2.train(continue_learning=(i > 0))
         sep2int()
+
         algo1.train(continue_learning=(i > 0))
         int2sep()
 
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=10,
+    n_parallel=0,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed

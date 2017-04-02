@@ -1,5 +1,7 @@
 __author__ = 'yuwenhao'
 
+__author__ = 'yuwenhao'
+
 import lasagne
 import lasagne.layers as L
 import lasagne.nonlinearities as NL
@@ -7,7 +9,7 @@ import numpy as np
 
 from rllab.core.lasagne_layers import ParamLayer
 from rllab.core.lasagne_powered import LasagnePowered
-from rllab.core.network import MLP, HMLP, HMLP_NonConcat
+from rllab.core.network import MLP, HMLP, HMLP_PROP
 from rllab.spaces import Box
 
 from rllab.core.serializable import Serializable
@@ -20,7 +22,7 @@ from rllab.distributions.diagonal_gaussian import DiagonalGaussian
 import theano.tensor as TT
 
 
-class GaussianHMLPPolicy(GaussianMLPPolicy):
+class GaussianHMLPPropPolicy(GaussianMLPPolicy):
     def __init__(
             self,
             env_spec,
@@ -51,7 +53,7 @@ class GaussianHMLPPolicy(GaussianMLPPolicy):
 
         # create network
         if mean_network is None:
-            mean_network = HMLP_NonConcat(
+            mean_network = HMLP_PROP(
                 hidden_sizes,
                 hidden_nonlinearity,
                 input_shape=(obs_dim,),
@@ -114,15 +116,6 @@ class GaussianHMLPPolicy(GaussianMLPPolicy):
             outputs=[mean_var, log_std_var],
         )
 
-        self.hidden_signals = ext.compile_function(
-            inputs=[obs_var],
-            outputs=[mean_network.hlc_signal1, mean_network.hlc_signal2, mean_network.leg1_part, mean_network.leg2_part]
-        )
-
-
-    def get_hidden_sig(self, observation):
-        flat_obs = self.observation_space.flatten(observation)
-        return self.hidden_signals([flat_obs])
-
-
+    def set_use_proprioception(self, use_prop):
+        self._mean_network.set_use_propsensing(use_prop)
 
