@@ -51,7 +51,7 @@ class GaussianHMLPPolicy(GaussianMLPPolicy):
 
         # create network
         if mean_network is None:
-            mean_network = HMLP_NonConcat(
+            mean_network = HMLP(
                 hidden_sizes,
                 hidden_nonlinearity,
                 input_shape=(obs_dim,),

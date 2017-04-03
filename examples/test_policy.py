@@ -4,6 +4,10 @@ from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 from rllab.policies.gaussian_hmlp_policy import GaussianHMLPPolicy
 
+import numpy as np
+
+np.random.seed(13)
+
 env = normalize(GymEnv("DartWalker2d-v1"))
 
 policy = GaussianHMLPPolicy(
@@ -18,12 +22,15 @@ policy = GaussianHMLPPolicy(
     option_dim=2,
 )
 
+print(policy.get_params())
+
 o = env.reset()
 
 for i in range(1000):
     a, ainfo = policy.get_action(o)
-    a = ainfo['mean']
-    o, rew, done, info = env.step(a)
+    act = ainfo['mean']
+    #print(act)
+    o, rew, done, info = env.step(act)
     env.render()
-    if done:
-        break
+    #if done:
+    #    break

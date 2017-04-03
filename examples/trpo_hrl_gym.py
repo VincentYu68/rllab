@@ -21,7 +21,7 @@ def run_task(*_):
         #sub_out_dim=6,
         #option_dim=4,
         sub_out_dim=3,
-        option_dim=2,
+        option_dim=3,
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -51,6 +51,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    exp_prefix='Walker2d_dupsum_2'
+    exp_prefix='Walker2d_concat_all'
     # plot=True
 )

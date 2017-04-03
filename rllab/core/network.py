@@ -449,14 +449,14 @@ class HMLP_NonConcat(LasagnePowered, Serializable):
         l_option1 = SplitLayer(l_options, range(0, option_dim))
         dup_rep = int(len(subnet_split1) / option_dim)
         l_dup1 = L.concat([l_option1]*dup_rep)
-        l_concat1 = L.concat([L.ElemwiseSumLayer([l_leg1, l_dup1]), l_option1])
+        l_concat1 = L.ElemwiseSumLayer([l_leg1, l_dup1])
 
         l_leg2 = SplitLayer(l_in, subnet_split2)
         #l_leg2 = SplitLayer(l_in, [2, 3, 4, 5, 6, 7, 11, 12, 13, 14, 15, 16])
         l_option2 = SplitLayer(l_options, range(option_dim, 2*option_dim))
         #l_concat2 = L.concat([l_leg2, l_option2])
         l_dup2 = L.concat([l_option2]*dup_rep)
-        l_concat2 = L.concat([L.ElemwiseSumLayer([l_leg2, l_dup2]), l_option2])
+        l_concat2 = L.ElemwiseSumLayer([l_leg2, l_dup2])
         self._layers.append(l_options)
         self._layers.append(l_leg1)
         self._layers.append(l_option1)
@@ -619,7 +619,9 @@ class HMLP(LasagnePowered, Serializable):
                 W=subnet_W_init,
                 b=subnet_b_init,
             )
+            l_s_concat1 = L.concat([l_snet, l_option1])
             self._layers.append(l_snet)
+            self._layers.append(l_s_concat1)
 
             l_snet2 = L.DenseLayer(
                 l_snet2,
@@ -629,7 +631,13 @@ class HMLP(LasagnePowered, Serializable):
                 W=l_snet.W,
                 b=l_snet.b,
             )
+            l_s_concat2 = L.concat([l_snet2, l_option2])
             self._layers.append(l_snet2)
+            self._layers.append(l_s_concat2)
+
+            l_snet = l_s_concat1
+            l_snet2 = l_s_concat2
+
         l_out1 = L.DenseLayer(
             l_snet,
             num_units=sub_out_dim,
