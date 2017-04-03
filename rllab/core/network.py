@@ -919,6 +919,10 @@ class HMLP_PROP(LasagnePowered, Serializable):
                 W=subnet_W_init,
                 b=subnet_b_init,
             )
+            p = l_snet.W.get_value(borrow=True)
+            p[0:len(subnet_split1), :] = 0
+            l_snet.W.set_value(p)
+
             self._layers.append(l_snet)
 
             l_snet2 = L.DenseLayer(
