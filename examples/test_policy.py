@@ -3,14 +3,16 @@ __author__ = 'yuwenhao'
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 from rllab.policies.gaussian_hmlp_policy import GaussianHMLPPolicy
+from rllab.policies.gaussian_hrl_prop_policy import GaussianHMLPPropPolicy
 
+import joblib
 import numpy as np
 
-np.random.seed(13)
+np.random.seed(1)
 
 env = normalize(GymEnv("DartWalker2d-v1"))
 
-policy = GaussianHMLPPolicy(
+policy = GaussianHMLPPropPolicy(
     env_spec=env.spec,
     # The neural network policy should have two hidden layers, each with 32 hidden units.
     hidden_sizes=(64,16),
@@ -22,15 +24,25 @@ policy = GaussianHMLPPolicy(
     option_dim=2,
 )
 
-print(policy.get_params())
+policy = joblib.load('data/local/Walker2d-alt-proprio/Walker2d_alt_proprio_2017_04_03_12_33_22_0001/policy_240.pkl')
 
 o = env.reset()
 
+rew = 0
+
 for i in range(1000):
     a, ainfo = policy.get_action(o)
-    act = ainfo['mean']
-    #print(act)
-    o, rew, done, info = env.step(act)
+    act = a
+    print(policy.get_option_layer_val(o))
+    if hasattr(policy, '_lowlevelnetwork'):
+        lowa = policy.lowlevel_action(o, act)
+        o, r, d, env_info = env.step(lowa)
+    else:
+        o, r, d, env_info = env.step(act)
+
+    rew += r
+
     env.render()
-    #if done:
-    #    break
+    if d:
+        print('reward: ', rew)
+        break

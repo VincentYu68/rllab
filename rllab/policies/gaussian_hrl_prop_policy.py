@@ -111,11 +111,14 @@ class GaussianHMLPPropPolicy(GaussianMLPPolicy):
             outputs=[mean_var, log_std_var],
         )
 
-        self._f_dist = ext.compile_function(
+        self.option_layer_val = ext.compile_function(
             inputs=[obs_var],
-            outputs=[mean_var, log_std_var],
+            outputs=[self._mean_network.val_contact1, self._mean_network.val_contact2],
         )
 
     def set_use_proprioception(self, use_prop):
         self._mean_network.set_use_propsensing(use_prop)
 
+    def get_option_layer_val(self, observation):
+        flat_obs = self.observation_space.flatten(observation)
+        return self.option_layer_val([flat_obs])

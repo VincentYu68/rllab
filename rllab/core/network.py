@@ -958,6 +958,9 @@ class HMLP_PROP(LasagnePowered, Serializable):
         # self._input_var = l_in.input_var
         self._output = L.get_output(l_out)
 
+        self.val_contact1 = L.get_output(l_concat1)
+        self.val_contact2 = L.get_output(l_concat2)
+
         LasagnePowered.__init__(self, [l_out])
 
     def set_use_propsensing(self, use_prop):
