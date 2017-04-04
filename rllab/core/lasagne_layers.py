@@ -49,6 +49,21 @@ class ElemwiseMultLayer(L.ElemwiseMergeLayer):
         # pass scaled inputs to the super class for summing
         return super(ElemwiseMultLayer, self).get_output_for(inputs, **kwargs)
 
+# layer that gives constant value
+class ConstantLayer(L.Layer):
+    def __init__(self, incoming, constant_vec, **kwargs):
+        super(ConstantLayer, self).__init__(incoming, **kwargs)
+        num_inputs = int(np.prod(self.input_shape[1:]))
+        self.num_out = len(constant_vec)
+        self.constant_W = self.add_param(lasagne.init.Constant(0), (num_inputs, self.num_out), name="constW", trainable=False)
+        self.constant_vec = self.add_param(constant_vec, constant_vec.shape, name='constant', trainable=False)
+
+    def get_output_for(self, input, **kwargs):
+        return TT.dot(input, self.constant_W) + self.constant_vec
+
+    def get_output_shape_for(self, input_shape):
+        return (input_shape[0], self.num_out)
+
 # take part of the input as output
 class SplitLayer(L.Layer):
     def __init__(self, incoming, select_idx, scale = None, **kwargs):

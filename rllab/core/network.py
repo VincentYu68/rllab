@@ -6,7 +6,7 @@ import lasagne.init as LI
 import theano.tensor as TT
 import theano
 from rllab.misc import ext
-from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer
+from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer, ConstantLayer
 from rllab.core.lasagne_powered import LasagnePowered
 from rllab.core.serializable import Serializable
 
@@ -594,11 +594,13 @@ class HMLP(LasagnePowered, Serializable):
             )
 
         l_leg1 = SplitLayer(l_in, subnet_split1)
-        l_option1 = SplitLayer(l_options, range(0, option_dim))
+        l_constant1 = ConstantLayer(l_in, np.array([1.0, 0.0]))
+        l_option1 = L.concat([SplitLayer(l_options, np.arange(0, option_dim)), l_constant1])
         l_concat1 = L.concat([l_leg1, l_option1])
 
         l_leg2 = SplitLayer(l_in, subnet_split2)
-        l_option2 = SplitLayer(l_options, range(option_dim, 2*option_dim))
+        l_constant2 = ConstantLayer(l_in, np.array([0.0, 1.0]))
+        l_option2 = L.concat([SplitLayer(l_options, np.arange(option_dim, 2*option_dim)), l_constant2])
         l_concat2 = L.concat([l_leg2, l_option2])
         self._layers.append(l_options)
         self._layers.append(l_leg1)
@@ -608,8 +610,8 @@ class HMLP(LasagnePowered, Serializable):
         self._layers.append(l_option2)
         self._layers.append(l_concat2)
 
-        l_snet = l_concat1
-        l_snet2 = l_concat2
+        l_snet = l_option1
+        l_snet2 = l_option2
         for idx, size in enumerate(subnet_size):
             l_snet = L.DenseLayer(
                 l_snet,
@@ -635,8 +637,8 @@ class HMLP(LasagnePowered, Serializable):
             self._layers.append(l_snet2)
             self._layers.append(l_s_concat2)
 
-            l_snet = l_s_concat1
-            l_snet2 = l_s_concat2
+            #l_snet = l_s_concat1
+            #l_snet2 = l_s_concat2
 
         l_out1 = L.DenseLayer(
             l_snet,
@@ -894,11 +896,11 @@ class HMLP_PROP(LasagnePowered, Serializable):
             )
 
         l_leg1 = SplitLayer(l_in, subnet_split1, scale=self.use_proprioceptive_sensing)
-        l_option1 = SplitLayer(l_options, range(0, option_dim))
+        l_option1 = SplitLayer(l_options, np.arange(0, option_dim))
         l_concat1 = L.concat([l_leg1, l_option1])
 
         l_leg2 = SplitLayer(l_in, subnet_split2, scale=self.use_proprioceptive_sensing)
-        l_option2 = SplitLayer(l_options, range(option_dim, 2*option_dim))
+        l_option2 = SplitLayer(l_options, np.arange(option_dim, 2*option_dim))
         l_concat2 = L.concat([l_leg2, l_option2])
         self._layers.append(l_options)
         self._layers.append(l_leg1)
@@ -919,9 +921,10 @@ class HMLP_PROP(LasagnePowered, Serializable):
                 W=subnet_W_init,
                 b=subnet_b_init,
             )
-            p = l_snet.W.get_value(borrow=True)
-            p[0:len(subnet_split1), :] = 0
-            l_snet.W.set_value(p)
+            if idx == 0:
+                p = l_snet.W.get_value(borrow=True)
+                p[0:len(subnet_split1), :] = 0
+                l_snet.W.set_value(p)
 
             self._layers.append(l_snet)
 

@@ -12,7 +12,7 @@ np.random.seed(1)
 
 env = normalize(GymEnv("DartWalker2d-v1"))
 
-policy = GaussianHMLPPropPolicy(
+policy = GaussianHMLPPolicy(
     env_spec=env.spec,
     # The neural network policy should have two hidden layers, each with 32 hidden units.
     hidden_sizes=(64,16),
@@ -24,10 +24,22 @@ policy = GaussianHMLPPropPolicy(
     option_dim=2,
 )
 
-policy = joblib.load('data/local/Walker2d-alt-proprio/Walker2d_alt_proprio_2017_04_03_12_33_22_0001/policy_240.pkl')
+#policy = joblib.load('data/local/Walker2d-alt-proprio/Walker2d_alt_proprio_2017_04_03_12_33_22_0001/policy_240.pkl')
 
 o = env.reset()
 
+print(policy.get_hidden_sig(o))
+
+'''a, ainfo = policy.get_action(o)
+print(ainfo['mean'])
+policy.set_use_proprioception(False)
+a, ainfo = policy.get_action(o)
+print(ainfo['mean'])
+policy.set_use_proprioception(True)
+a, ainfo = policy.get_action(o)
+print(ainfo['mean'])
+'''
+aa
 rew = 0
 
 for i in range(1000):
