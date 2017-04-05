@@ -37,6 +37,7 @@ class GaussianHMLPPolicy(GaussianMLPPolicy):
             mean_network=None,
             std_network=None,
             dist_cls=DiagonalGaussian,
+            hlc_output_dim = 0,
             subnet_split1=[2, 3, 4, 11, 12, 13],
             subnet_split2=[5, 6, 7, 14, 15, 16],
             sub_out_dim=3,
@@ -57,6 +58,7 @@ class GaussianHMLPPolicy(GaussianMLPPolicy):
                 input_shape=(obs_dim,),
                 subnet_split1=subnet_split1,
                 subnet_split2=subnet_split2,
+                hlc_output_dim = hlc_output_dim,
                 sub_out_dim=sub_out_dim,
                 option_dim=option_dim,
             )

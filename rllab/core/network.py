@@ -560,7 +560,7 @@ class HMLP_NonConcat(LasagnePowered, Serializable):
 class HMLP(LasagnePowered, Serializable):
     def __init__(self, hidden_sizes, hidden_nonlinearity, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
                  subnet_size = (16,16), subnet_nonlinearity=LN.tanh, subnet_W_init=LI.GlorotUniform(), subnet_b_init=LI.Constant(0.),
-                 name=None, input_shape=None, option_dim = 2, subnet_split1 = [2,3,4,11,12,13], subnet_split2=[5,6,7, 14,15,16], sub_out_dim = 3):
+                 name=None, input_shape=None, option_dim = 2, subnet_split1 = [2,3,4,11,12,13], subnet_split2=[5,6,7, 14,15,16], hlc_output_dim = 0, sub_out_dim = 3):
 
         Serializable.quick_init(self, locals())
 
@@ -586,7 +586,7 @@ class HMLP(LasagnePowered, Serializable):
 
         l_options = L.DenseLayer(
                 l_hid,
-                num_units=option_dim*2,
+                num_units=option_dim*2+hlc_output_dim,
                 nonlinearity=hidden_nonlinearity,
                 name="%soptions" % (prefix),
                 W=hidden_W_init,
@@ -660,7 +660,14 @@ class HMLP(LasagnePowered, Serializable):
         )
         self._layers.append(l_out2)
 
-        l_out = L.concat([l_out1, l_out2])
+        if not hlc_output_dim == 0:
+            l_out_hlc = SplitLayer(l_options, np.arange(option_dim*2, 2*option_dim + hlc_output_dim))
+            self._layers.append(l_out_hlc)
+            l_out = L.concat([l_out_hlc, l_out1, l_out2])
+        else:
+            l_out = L.concat([l_out1, l_out2])
+
+
         self._layers.append(l_out)
 
         self._l_in = l_in

@@ -10,18 +10,17 @@ from rllab.policies.gaussian_hmlp_policy import GaussianHMLPPolicy
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker2d-v1"))
+    env = normalize(GymEnv("DartWalker3d-v1"))
 
     policy = GaussianHMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64,16),
-        #subnet_split1=[5, 6, 7, 8, 9, 21, 22, 23, 24, 25],
-        #subnet_split2=[10, 11, 12, 13, 14, 26, 27, 28, 29, 30],
-        #sub_out_dim=6,
-        #option_dim=4,
-        sub_out_dim=3,
-        option_dim=3,
+        hidden_sizes=(64,64),
+        subnet_split1=[8, 9, 10, 11, 12, 13, 29, 30, 31, 32, 33, 34],
+        subnet_split2=[14, 15, 16, 17, 18, 19, 35, 36, 37, 38, 39, 40],
+        sub_out_dim=6,
+        option_dim=4,
+        hlc_output_dim=3,
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -32,7 +31,7 @@ def run_task(*_):
         baseline=baseline,
         batch_size=50000,
         max_path_length=env.horizon,
-        n_itr=1000,
+        n_itr=500,
         discount=0.99,
         step_size=0.01,
         epopt_epsilon = 1.0,
@@ -51,6 +50,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    exp_prefix='Walker2d_concat_all'
+    exp_prefix='Walker3d_waist'
     # plot=True
 )

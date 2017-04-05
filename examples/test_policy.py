@@ -10,7 +10,8 @@ import numpy as np
 
 np.random.seed(1)
 
-env = normalize(GymEnv("DartWalker2d-v1"))
+env = normalize(GymEnv("DartWalker3d-v1"))
+env._wrapped_env.env.env.disableViewer=False
 
 policy = GaussianHMLPPolicy(
     env_spec=env.spec,
@@ -24,7 +25,7 @@ policy = GaussianHMLPPolicy(
     option_dim=2,
 )
 
-policy = joblib.load('data/local/experiment/Walker2d_llc/policy_0.pkl')
+policy = joblib.load('data/local/experiment/Walker2d_llc_2/policy_0.pkl')
 
 o = env.reset()
 
@@ -41,7 +42,7 @@ rew = 0
 
 for i in range(1000):
     a, ainfo = policy.get_action(o)
-    act = a
+    act = ainfo['mean']
     #print(policy.get_option_layer_val(o))
     if hasattr(policy, '_lowlevelnetwork'):
         lowa = policy.lowlevel_action(o, act)
@@ -52,6 +53,6 @@ for i in range(1000):
     rew += r
 
     env.render()
-    if d:
-        print('reward: ', rew)
-        break
+    #if d:
+    #    print('reward: ', rew)
+    #    break
