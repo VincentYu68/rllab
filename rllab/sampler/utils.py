@@ -16,11 +16,14 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
     if animated:
         env.render()
     while path_length < max_path_length:
+        #print(o)
         a, agent_info = agent.get_action(o)
         if hasattr(agent, '_lowlevelnetwork'):
             lowa = agent.lowlevel_action(o, a)
             next_o, r, d, env_info = env.step(lowa)
+            #print('lowlevela:',lowa)
         else:
+            #print('normal a:',agent_info['mean'])
             next_o, r, d, env_info = env.step(a)
         observations.append(env.observation_space.flatten(o))
         rewards.append(r)
@@ -35,6 +38,8 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
             env.render()
             timestep = 0.05
             time.sleep(timestep / speedup)
+        #if path_length > 5:
+        #    abc
     if animated and not always_return_paths:
         return
 

@@ -35,6 +35,7 @@ class GaussianHLCPolicy(GaussianMLPPolicy):
             hidden_nonlinearity=NL.tanh,
             output_nonlinearity=None,
             mean_network=None,
+            lowlevelnetwork=None,
             std_network=None,
             dist_cls=DiagonalGaussian,
             subnet_split1=[2, 3, 4, 11, 12, 13],
@@ -62,16 +63,18 @@ class GaussianHLCPolicy(GaussianMLPPolicy):
             )
         self._mean_network = mean_network
 
-        self._lowlevelnetwork = LLC(
-                obs_dim,
-                hidden_sizes,
-                hidden_nonlinearity,
-                input_shape=(obs_dim+option_dim*2,),
-                subnet_split1=subnet_split1,
-                subnet_split2=subnet_split2,
-                sub_out_dim=sub_out_dim,
-                option_dim=option_dim,
-            )
+        if lowlevelnetwork is None:
+            lowlevelnetwork = LLC(
+                    obs_dim,
+                    hidden_sizes,
+                    hidden_nonlinearity,
+                    input_shape=(obs_dim+option_dim*2,),
+                    subnet_split1=subnet_split1,
+                    subnet_split2=subnet_split2,
+                    sub_out_dim=sub_out_dim,
+                    option_dim=option_dim,
+                )
+        self._lowlevelnetwork = lowlevelnetwork
 
         l_mean = mean_network.output_layer
         obs_var = mean_network.input_layer.input_var
@@ -112,7 +115,7 @@ class GaussianHLCPolicy(GaussianMLPPolicy):
 
         self._dist = dist_cls(option_dim*2)
 
-        LasagnePowered.__init__(self, [l_mean, l_log_std])
+        LasagnePowered.__init__(self, [l_mean, l_log_std, self._lowlevelnetwork.output_layer])
         super(GaussianMLPPolicy, self).__init__(env_spec)
 
         self._f_dist = ext.compile_function(

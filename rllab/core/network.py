@@ -595,12 +595,12 @@ class HMLP(LasagnePowered, Serializable):
 
         l_leg1 = SplitLayer(l_in, subnet_split1)
         l_constant1 = ConstantLayer(l_in, np.array([1.0, 0.0]))
-        l_option1 = L.concat([SplitLayer(l_options, np.arange(0, option_dim)), l_constant1])
+        l_option1 = SplitLayer(l_options, np.arange(0, option_dim))
         l_concat1 = L.concat([l_leg1, l_option1])
 
         l_leg2 = SplitLayer(l_in, subnet_split2)
         l_constant2 = ConstantLayer(l_in, np.array([0.0, 1.0]))
-        l_option2 = L.concat([SplitLayer(l_options, np.arange(option_dim, 2*option_dim)), l_constant2])
+        l_option2 = SplitLayer(l_options, np.arange(option_dim, 2*option_dim))
         l_concat2 = L.concat([l_leg2, l_option2])
         self._layers.append(l_options)
         self._layers.append(l_leg1)
@@ -610,8 +610,8 @@ class HMLP(LasagnePowered, Serializable):
         self._layers.append(l_option2)
         self._layers.append(l_concat2)
 
-        l_snet = l_option1
-        l_snet2 = l_option2
+        l_snet = l_concat1
+        l_snet2 = l_concat2
         for idx, size in enumerate(subnet_size):
             l_snet = L.DenseLayer(
                 l_snet,
@@ -637,8 +637,8 @@ class HMLP(LasagnePowered, Serializable):
             self._layers.append(l_snet2)
             self._layers.append(l_s_concat2)
 
-            #l_snet = l_s_concat1
-            #l_snet2 = l_s_concat2
+            l_snet = l_s_concat1
+            l_snet2 = l_s_concat2
 
         l_out1 = L.DenseLayer(
             l_snet,
@@ -794,7 +794,9 @@ class LLC(LasagnePowered, Serializable):
                 W=subnet_W_init,
                 b=subnet_b_init,
             )
+            l_s_concat1 = L.concat([l_snet, l_option1])
             self._layers.append(l_snet)
+            self._layers.append(l_s_concat1)
 
             l_snet2 = L.DenseLayer(
                 l_snet2,
@@ -804,7 +806,14 @@ class LLC(LasagnePowered, Serializable):
                 W=l_snet.W,
                 b=l_snet.b,
             )
+            l_s_concat2 = L.concat([l_snet2, l_option2])
             self._layers.append(l_snet2)
+            self._layers.append(l_s_concat2)
+
+            l_snet = l_s_concat1
+            l_snet2 = l_s_concat2
+
+
         l_out1 = L.DenseLayer(
             l_snet,
             num_units=sub_out_dim,
@@ -824,6 +833,7 @@ class LLC(LasagnePowered, Serializable):
             b=l_out1.b,
         )
         self._layers.append(l_out2)
+
 
         l_out = L.concat([l_out1, l_out2])
         self._layers.append(l_out)

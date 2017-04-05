@@ -5,7 +5,7 @@ import rllab.misc.logger as logger
 import rllab.plotter as plotter
 from rllab.policies.base import Policy
 
-
+import numpy as np
 class BatchSampler(BaseSampler):
     def __init__(self, algo):
         """
@@ -21,6 +21,7 @@ class BatchSampler(BaseSampler):
 
     def obtain_samples(self, itr):
         cur_params = self.algo.policy.get_param_values()
+
         paths = parallel_sampler.sample_paths(
             policy_params=cur_params,
             max_samples=self.algo.batch_size,
