@@ -13,8 +13,8 @@ import joblib
 import time
 import os.path
 
-cur_exp_name = 'Walker3d_llc'
-dual_exp_name = 'Walker3d_hlc'
+cur_exp_name = 'Walker2d_llc_2'
+dual_exp_name = 'Walker2d_hlc_2'
 
 def hlc2llc(hlc, llc):
     # copy parameter from separate controller to integrated controller
@@ -28,16 +28,16 @@ def hlc2llc(hlc, llc):
 
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker3d-v1", record_video=False))
+    env = normalize(GymEnv("DartWalker2d-v1", record_video=False))
 
     policy = GaussianHMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(64,32),
-        subnet_split1=[5, 6, 7, 8, 9, 10, 23, 24, 25, 26, 27, 28],
-        subnet_split2=[11, 12, 13, 14, 15, 16, 29, 30, 31, 32, 33, 34],
-        sub_out_dim=6,
-        option_dim=4,
+        #subnet_split1=[5, 6, 7, 8, 9, 10, 23, 24, 25, 26, 27, 28],
+        #subnet_split2=[11, 12, 13, 14, 15, 16, 29, 30, 31, 32, 33, 34],
+        sub_out_dim=3,
+        option_dim=3,
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -46,9 +46,9 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=50000,
+        batch_size=15000,
         max_path_length=env.horizon,
-        n_itr=10,
+        n_itr=3,
         discount=0.99,
         step_size=0.01,
         epopt_epsilon = 1.0,
@@ -82,7 +82,7 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=6,
+    n_parallel=2,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed

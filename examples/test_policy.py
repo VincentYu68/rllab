@@ -24,11 +24,9 @@ policy = GaussianHMLPPolicy(
     option_dim=2,
 )
 
-#policy = joblib.load('data/local/Walker2d-alt-proprio/Walker2d_alt_proprio_2017_04_03_12_33_22_0001/policy_240.pkl')
+policy = joblib.load('data/local/experiment/Walker2d_llc/policy_0.pkl')
 
 o = env.reset()
-
-print(policy.get_hidden_sig(o))
 
 '''a, ainfo = policy.get_action(o)
 print(ainfo['mean'])
@@ -39,13 +37,12 @@ policy.set_use_proprioception(True)
 a, ainfo = policy.get_action(o)
 print(ainfo['mean'])
 '''
-aa
 rew = 0
 
 for i in range(1000):
     a, ainfo = policy.get_action(o)
     act = a
-    print(policy.get_option_layer_val(o))
+    #print(policy.get_option_layer_val(o))
     if hasattr(policy, '_lowlevelnetwork'):
         lowa = policy.lowlevel_action(o, act)
         o, r, d, env_info = env.step(lowa)
