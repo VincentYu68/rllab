@@ -64,6 +64,20 @@ class ConstantLayer(L.Layer):
     def get_output_shape_for(self, input_shape):
         return (input_shape[0], self.num_out)
 
+# apply sin transform to input
+class PhaseLayer(L.Layer):
+    def __init__(self, incoming, frequency, phase, scale = None, **kwargs):
+        super(PhaseLayer, self).__init__(incoming, **kwargs)
+        self.frequency = frequency
+        self.phase = phase
+
+    def get_output_for(self, input, **kwargs):
+        return TT.sin(input * self.frequency + self.phase)
+
+    def get_output_shape_for(self, input_shape):
+        return input_shape
+
+
 # take part of the input as output
 class SplitLayer(L.Layer):
     def __init__(self, incoming, select_idx, scale = None, **kwargs):
