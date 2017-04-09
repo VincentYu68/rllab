@@ -118,7 +118,7 @@ class GaussianHMLPPhaseHumanoidPolicy(GaussianMLPPolicy):
 
         self.hidden_signals = ext.compile_function(
             inputs=[obs_var],
-            outputs=[mean_network.hlc_signal1, mean_network.hlc_signal2, mean_network.leg1_part, mean_network.leg2_part]
+            outputs=[mean_network.hlc_signal1, mean_network.hlc_signal2]
         )
 
 
