@@ -103,6 +103,63 @@ class MLP(LasagnePowered, Serializable):
         return self._output
 
 
+class MLPAux(LasagnePowered, Serializable):
+    def __init__(self, history_size, output_dim, output_nonlinearity, CtlNet):
+
+        Serializable.quick_init(self, locals())
+
+        l_in = L.InputLayer(shape=(None, CtlNet.input_layer.shape[1]*history_size), input_var=None)
+        obs_dim = CtlNet.input_layer.shape[1]
+        self._layers = [l_in]
+        l_hid_out = []
+        for i in range(history_size):
+            l_hid = SplitLayer(l_in, np.arange(i*obs_dim,(i+1) * obs_dim))
+            for h in range(len(CtlNet.layers)-3):
+                l_hid = L.DenseLayer(
+                    l_hid,
+                    num_units=CtlNet.layers[h+1].num_units,
+                    nonlinearity=CtlNet.layers[h+1].nonlinearity,
+                    name="hidden_%d_%d" % (i, h),
+                    W=CtlNet.layers[h+1].W,
+                    b=CtlNet.layers[h+1].b,
+                )
+                self._layers.append(l_hid)
+            l_hid_out.append(l_hid)
+        l_merge = L.concat(l_hid_out)
+
+        l_out = L.DenseLayer(
+            l_merge,
+            num_units=output_dim,
+            nonlinearity=output_nonlinearity,
+            name="output",
+            W=LI.GlorotUniform(),
+            b=LI.Constant(0.),
+        )
+        self._layers.append(l_out)
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
+
+
+
 class GRULayer(L.Layer):
     """
     A gated recurrent unit implements the following update mechanism:
@@ -1157,7 +1214,8 @@ class HMLP_PROP(LasagnePowered, Serializable):
 class HMLPPhaseHumanoid(LasagnePowered, Serializable):
     def __init__(self, hidden_sizes, hidden_nonlinearity, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
                  subnet_size = (16,16), subnet_nonlinearity=LN.tanh, subnet_W_init=LI.GlorotUniform(), subnet_b_init=LI.Constant(0.),
-                 name=None, input_shape=None, option_dim = 2, hlc_output_dim = 0, sub_out_dim1 = 4, sub_out_dim2 = 3):
+                 name=None, input_shape=None, option_dim = 2, hlc_output_dim = 0, sub_out_dim1 = 4, sub_out_dim2 = 3,
+                 subnet_split1 = [], subnet_split2=[], subnet_split3=[], subnet_split4=[]):
 
         Serializable.quick_init(self, locals())
 
@@ -1199,7 +1257,7 @@ class HMLPPhaseHumanoid(LasagnePowered, Serializable):
         l_option1 = L.concat([SplitLayer(l_options, np.arange(0, option_dim)), l_phase1])
         l_option2 = L.concat([SplitLayer(l_options, np.arange(option_dim, 2*option_dim)), l_phase2])
         l_option3 = L.concat([SplitLayer(l_options, np.arange(option_dim*2, option_dim*3)), l_phase2])
-        l_option4 = L.concat([SplitLayer(l_options, np.arange(option_dim*3, 2*option_dim*4)), l_phase1])
+        l_option4 = L.concat([SplitLayer(l_options, np.arange(option_dim*3, option_dim*4)), l_phase1])
         self._layers.append(l_options)
         self._layers.append(l_option1)
         self._layers.append(l_option2)
@@ -1293,7 +1351,7 @@ class HMLPPhaseHumanoid(LasagnePowered, Serializable):
         self._layers.append(l_out4)
 
         if not hlc_output_dim == 0:
-            l_out_hlc = SplitLayer(l_options, np.arange(option_dim*2, 2*option_dim + hlc_output_dim))
+            l_out_hlc = SplitLayer(l_options, np.arange(option_dim*4, 4*option_dim + hlc_output_dim))
             self._layers.append(l_out_hlc)
             l_out = L.concat([l_out_hlc, l_out1, l_out2, l_out3, l_out4])
         else:
