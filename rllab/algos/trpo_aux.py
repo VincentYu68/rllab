@@ -9,6 +9,7 @@ from rllab.sampler.base import BaseSampler
 import rllab.misc.logger as logger
 import rllab.plotter as plotter
 from rllab.policies.base import Policy
+from rllab.misc import ext
 
 import numpy as np
 
@@ -67,6 +68,7 @@ class TRPOAux(NPO):
             optimizer=None,
             optimizer_args=None,
             aux_pred_step = 3,
+            aux_pred_dim = 4,
             pool_batch_size=10000,
             **kwargs):
         if optimizer is None:
@@ -76,9 +78,9 @@ class TRPOAux(NPO):
         self.pool_batch_size = pool_batch_size
         self.aux_pred_step = aux_pred_step
         super(TRPOAux, self).__init__(optimizer=optimizer, **kwargs)
-        self.reward_pool = SimpleReplayPoolAux(10000, self.env.observation_space.shape[0] * self.aux_pred_step, 1)
-        self.termination_pool = SimpleReplayPoolAux(10000, self.env.observation_space.shape[0] * self.aux_pred_step, 1)
-        self.com_pool = SimpleReplayPoolAux(10000, self.env.observation_space.shape[0] * self.aux_pred_step, 3)
+
+        self.aux_pred_dim = aux_pred_dim
+        self.aux_pred_pool = SimpleReplayPoolAux(10000, self.env.observation_space.shape[0] * self.aux_pred_step, aux_pred_dim)
 
 
     def storeAuxData(self, paths):
@@ -86,31 +88,62 @@ class TRPOAux(NPO):
             for step in range(len(path['observations'])-self.aux_pred_step):
                 obs_hist = path['observations'][step:step + self.aux_pred_step]
                 obs_hist = np.reshape(obs_hist, (obs_hist.shape[0] * obs_hist.shape[1],))
-                reward = path['rewards'][step + self.aux_pred_step]
-                termination = path['env_infos']['done_return'][step + self.aux_pred_step]
-                if 'aux_pred3d' in path['env_infos']:
-                    com_pred = path['env_infos']['aux_pred3d'][step + self.aux_pred_step]
-                    self.com_pool.add_sample(obs_hist, com_pred)
-                if termination:
-                    self.reward_pool.add_sample(obs_hist, 0)
-                else:
-                    self.reward_pool.add_sample(obs_hist, reward)#int(np.sign(reward))+1)
+                #reward = path['rewards'][step + self.aux_pred_step]
+                #termination = path['env_infos']['done_return'][step + self.aux_pred_step]
+                if 'aux_pred' in path['env_infos']:
+                    aux_pred = path['env_infos']['aux_pred'][step + self.aux_pred_step]
+                    self.aux_pred_pool.add_sample(obs_hist, aux_pred)
 
 
     def optimize_aux_tasks(self, epoch):
-        reward_termination_data = self.reward_pool.random_batch(int(self.pool_batch_size))
-        '''termination_data = self.termination_pool.random_batch(int(self.pool_batch_size/2))
-        reward_termination_data = dict(
-            inputs=np.concatenate([reward_data['inputs'], termination_data['inputs']]),
-            outputs=np.concatenate([reward_data['outputs'], termination_data['outputs']]),
-        )'''
-        reward_termination_target = reward_termination_data['outputs']
-        #reward_termination_target = np.reshape(reward_termination_target, (reward_termination_target.shape[0] * reward_termination_target.shape[1],))
+        aux_pred_data = self.aux_pred_pool.random_batch(int(self.pool_batch_size))
 
-        com_data = self.com_pool.random_batch(self.pool_batch_size)
+        self.policy.train_aux(aux_pred_data['inputs'], aux_pred_data['outputs'], epoch, 32)
 
-        self.policy.train_aux_reward(reward_termination_data['inputs'], reward_termination_target, epoch, 32)
-        self.policy.train_aux_com(com_data['inputs'], com_data['outputs'], epoch, 32)
+    def optimize_policy(self, itr, samples_data):
+        all_input_values = tuple(ext.extract(
+            samples_data,
+            "observations", "actions", "advantages"
+        ))
+        agent_infos = samples_data["agent_infos"]
+        state_info_list = [agent_infos[k] for k in self.policy.state_info_keys]
+        dist_info_list = [agent_infos[k] for k in self.policy.distribution.dist_info_keys]
+        all_input_values += tuple(state_info_list) + tuple(dist_info_list)
+        if self.policy.recurrent:
+            all_input_values += (samples_data["valids"],)
+        loss_before = self.optimizer.loss(all_input_values)
+        mean_kl_before = self.optimizer.constraint_val(all_input_values)
+        self.optimizer.optimize(all_input_values)
+        loss_after = self.optimizer.loss(all_input_values)
+
+        param_before = np.copy(self.policy.get_param_values(trainable=True))
+        aux_net_param_before = np.copy(self.policy._aux_pred_network.get_param_values(trainable=True))
+        if itr == 0:
+            auxstep_size = 0
+            self.optimize_aux_tasks(epoch=100)
+        else:
+            self.optimize_aux_tasks(1)
+            policy_direction = self.policy.get_param_values(trainable=True) - param_before
+            aux_net_direction = self.policy._aux_pred_network.get_param_values(trainable=True) - aux_net_param_before
+            auxstep_size = 1
+            for line_step in range(20):
+                self.policy.set_param_values(param_before + auxstep_size * policy_direction, trainable=True)
+                temp_kl = self.optimizer.constraint_val(all_input_values)
+                temp_loss = self.optimizer.loss(all_input_values)
+                if temp_loss < loss_after+abs(loss_after)*0.01 and temp_kl < self.step_size:
+                    break
+                auxstep_size *= 0.6
+            self.policy._aux_pred_network.set_param_values(aux_net_param_before + auxstep_size * aux_net_direction,trainable=True)
+
+        mean_kl = self.optimizer.constraint_val(all_input_values)
+        loss_after = self.optimizer.loss(all_input_values)
+        logger.record_tabular('AuxNetStepSize', auxstep_size)
+        logger.record_tabular('LossBefore', loss_before)
+        logger.record_tabular('LossAfter', loss_after)
+        logger.record_tabular('MeanKLBefore', mean_kl_before)
+        logger.record_tabular('MeanKL', mean_kl)
+        logger.record_tabular('dLoss', loss_before - loss_after)
+        return dict()
 
     def train(self, continue_learning=False):
         self.start_worker()
@@ -123,10 +156,6 @@ class TRPOAux(NPO):
                 self.log_diagnostics(paths)
                 self.storeAuxData(paths)
                 self.optimize_policy(itr, samples_data)
-                if itr == 0:
-                    self.optimize_aux_tasks(epoch=100)
-                else:
-                    self.optimize_aux_tasks(1)
                 logger.log("saving snapshot...")
                 params = self.get_itr_snapshot(itr, samples_data)
                 self.current_itr = itr + 1

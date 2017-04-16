@@ -38,6 +38,7 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
             std_network=None,
             dist_cls=DiagonalGaussian,
             aux_pred_step=3,
+            aux_pred_dim=4,
     ):
         """
         :param env_spec:
@@ -72,38 +73,22 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
             )
         self._mean_network = mean_network
 
-        self._aux_reward_network = MLPAux(
+        self._aux_pred_network = MLPAux(
             aux_pred_step,
-            1,
-            None,
-            mean_network,
-        )
-
-        self._aux_com_network = MLPAux(
-            aux_pred_step,
-            3,
+            aux_pred_dim,
             None,
             mean_network,
         )
 
         # compile training function
-        cat_target_var = TT.matrix('cat_targets')
-        prediction = self._aux_reward_network._output
-        loss = lasagne.objectives.squared_error(prediction, cat_target_var)
+        aux_target_var = TT.matrix('aux_targets')
+        prediction = self._aux_pred_network._output
+        loss = lasagne.objectives.squared_error(prediction, aux_target_var)
         loss = loss.mean()
-        params = self._aux_reward_network.get_params(trainable=True)
+        params = self._aux_pred_network.get_params(trainable=True)
         updates = lasagne.updates.sgd(
-            loss, params, learning_rate=0.001)
-        self.cat_train_fn = T.function([self._aux_reward_network.input_layer.input_var, cat_target_var], loss, updates=updates, allow_input_downcast=True)
-
-        com_target_var = TT.matrix('com_targets')
-        prediction = self._aux_com_network._output
-        loss = lasagne.objectives.squared_error(prediction, com_target_var)
-        loss = loss.mean()
-        params = self._aux_com_network.get_params(trainable=True)
-        updates = lasagne.updates.sgd(
-            loss, params, learning_rate=0.001)
-        self.com_train_fn = T.function([self._aux_com_network.input_layer.input_var, com_target_var], loss, updates=updates)
+            loss, params, learning_rate=0.0001)
+        self.aux_train_fn = T.function([self._aux_pred_network.input_layer.input_var, aux_target_var], loss, updates=updates)
 
         l_mean = mean_network.output_layer
         obs_var = mean_network.input_layer.input_var
@@ -209,28 +194,16 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
                 excerpt = slice(start_idx, start_idx + batchsize)
             yield inputs[excerpt], targets[excerpt]
 
-    def train_aux_reward(self, X, Y, num_epochs, batch_size):
+    def train_aux(self, X, Y, num_epochs, batch_size):
         for epoch in range(num_epochs):
             # In each epoch, we do a full pass over the training data:
             train_err = 0
             train_batches = 0
             for batch in self.iterate_minibatches(X, Y, batch_size, shuffle=True):
                 inputs, targets = batch
-                train_err += self.cat_train_fn(inputs, targets)
+                train_err += self.aux_train_fn(inputs, targets)
                 train_batches += 1
 
             # Then we print the results for this epoch:
-            print("reward training loss:\t\t{:.6f}".format(train_err / train_batches))
+            print("aux training loss:\t\t{:.6f}".format(train_err / train_batches))
 
-    def train_aux_com(self, X, Y, num_epochs, batch_size):
-        for epoch in range(num_epochs):
-            # In each epoch, we do a full pass over the training data:
-            train_err = 0
-            train_batches = 0
-            for batch in self.iterate_minibatches(X, Y, batch_size, shuffle=True):
-                inputs, targets = batch
-                train_err += self.com_train_fn(inputs, targets)
-                train_batches += 1
-
-            # Then we print the results for this epoch:
-            print("com training loss:\t\t{:.6f}".format(train_err / train_batches))

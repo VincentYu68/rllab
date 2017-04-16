@@ -12,13 +12,14 @@ from rllab.policies.gaussian_mlp_aux_policy import GaussianMLPAuxPolicy
 import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartReacher-v1"))#, record_log=False, record_video=False))
+    env = normalize(GymEnv("DartReacher-v1", record_log=False, record_video=False))
 
     policy = GaussianMLPAuxPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
         aux_pred_step = 3,
+        aux_pred_dim = 4,
     )
 
     #policy = joblib.load('data/local/experiment/walker_aux/policy.pkl')
@@ -38,6 +39,7 @@ def run_task(*_):
         epopt_after_iter = 0,
         gae_lambda=0.97,
         aux_pred_step=3,
+        aux_pred_dim = 4,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
         # plot=True,
     )
@@ -53,6 +55,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=3,
-    exp_name='reacher_aux',
+    exp_name='reacher_aux2',
     # plot=True,
 )
