@@ -74,8 +74,8 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
 
         self._aux_reward_network = MLPAux(
             aux_pred_step,
-            3,
-            NL.softmax,
+            1,
+            None,
             mean_network,
         )
 
@@ -87,9 +87,9 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
         )
 
         # compile training function
-        cat_target_var = TT.ivector('cat_targets')
+        cat_target_var = TT.matrix('cat_targets')
         prediction = self._aux_reward_network._output
-        loss = lasagne.objectives.categorical_crossentropy(prediction, cat_target_var)
+        loss = lasagne.objectives.squared_error(prediction, cat_target_var)
         loss = loss.mean()
         params = self._aux_reward_network.get_params(trainable=True)
         updates = lasagne.updates.sgd(

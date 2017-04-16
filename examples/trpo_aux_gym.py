@@ -12,7 +12,7 @@ from rllab.policies.gaussian_mlp_aux_policy import GaussianMLPAuxPolicy
 import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker3d-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartReacher-v1"))#, record_log=False, record_video=False))
 
     policy = GaussianMLPAuxPolicy(
         env_spec=env.spec,
@@ -21,7 +21,7 @@ def run_task(*_):
         aux_pred_step = 3,
     )
 
-    #policy = joblib.load('data/local/experiment/Walker3d_trpo_2/policy.pkl')
+    #policy = joblib.load('data/local/experiment/walker_aux/policy.pkl')
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
@@ -29,7 +29,7 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=50000,
+        batch_size=30000,
         max_path_length=env.horizon,
         n_itr=1000,
         discount=0.995,
@@ -53,6 +53,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=3,
-    exp_name='walker_aux',
+    exp_name='reacher_aux',
     # plot=True,
 )

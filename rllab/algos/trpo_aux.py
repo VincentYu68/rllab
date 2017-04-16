@@ -88,27 +88,29 @@ class TRPOAux(NPO):
                 obs_hist = np.reshape(obs_hist, (obs_hist.shape[0] * obs_hist.shape[1],))
                 reward = path['rewards'][step + self.aux_pred_step]
                 termination = path['env_infos']['done_return'][step + self.aux_pred_step]
-                com_pred = path['env_infos']['com_foot_offset'][step + self.aux_pred_step]
+                if 'aux_pred3d' in path['env_infos']:
+                    com_pred = path['env_infos']['aux_pred3d'][step + self.aux_pred_step]
+                    self.com_pool.add_sample(obs_hist, com_pred)
                 if termination:
-                    self.termination_pool.add_sample(obs_hist, int(0))
+                    self.reward_pool.add_sample(obs_hist, 0)
                 else:
-                    self.reward_pool.add_sample(obs_hist, int(np.sign(reward)))
-                self.com_pool.add_sample(obs_hist, com_pred)
+                    self.reward_pool.add_sample(obs_hist, reward)#int(np.sign(reward))+1)
 
-    def optimize_aux_tasks(self):
-        reward_data = self.reward_pool.random_batch(int(self.pool_batch_size/2))
-        termination_data = self.termination_pool.random_batch(int(self.pool_batch_size/2))
+
+    def optimize_aux_tasks(self, epoch):
+        reward_termination_data = self.reward_pool.random_batch(int(self.pool_batch_size))
+        '''termination_data = self.termination_pool.random_batch(int(self.pool_batch_size/2))
         reward_termination_data = dict(
             inputs=np.concatenate([reward_data['inputs'], termination_data['inputs']]),
             outputs=np.concatenate([reward_data['outputs'], termination_data['outputs']]),
-        )
+        )'''
         reward_termination_target = reward_termination_data['outputs']
-        reward_termination_target = np.reshape(reward_termination_target, (reward_termination_target.shape[0] * reward_termination_target.shape[1],))
+        #reward_termination_target = np.reshape(reward_termination_target, (reward_termination_target.shape[0] * reward_termination_target.shape[1],))
 
         com_data = self.com_pool.random_batch(self.pool_batch_size)
 
-        self.policy.train_aux_reward(reward_termination_data['inputs'], reward_termination_target, 1, 32)
-        self.policy.train_aux_com(com_data['inputs'], com_data['outputs'], 1, 32)
+        self.policy.train_aux_reward(reward_termination_data['inputs'], reward_termination_target, epoch, 32)
+        self.policy.train_aux_com(com_data['inputs'], com_data['outputs'], epoch, 32)
 
     def train(self, continue_learning=False):
         self.start_worker()
@@ -120,8 +122,11 @@ class TRPOAux(NPO):
                 samples_data = self.sampler.process_samples(itr, paths)
                 self.log_diagnostics(paths)
                 self.storeAuxData(paths)
-                self.optimize_aux_tasks()
                 self.optimize_policy(itr, samples_data)
+                if itr == 0:
+                    self.optimize_aux_tasks(epoch=100)
+                else:
+                    self.optimize_aux_tasks(1)
                 logger.log("saving snapshot...")
                 params = self.get_itr_snapshot(itr, samples_data)
                 self.current_itr = itr + 1
