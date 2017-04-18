@@ -9,7 +9,7 @@ from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
 import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker3d-v1"))
+    env = normalize(GymEnv("DartHopper-v1"))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
@@ -25,11 +25,12 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=50000,
+        batch_size=25000,
         max_path_length=env.horizon,
-        n_itr=2500,
-        discount=0.99,
+        n_itr=500,
+        discount=0.995,
         step_size=0.01,
+        gae_lambda=0.97,
         epopt_epsilon = 1.0,
         epopt_after_iter = 0,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
@@ -47,6 +48,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    exp_prefix='walker3d_trpo',
+    exp_name='dart_hopper_capsule',
     # plot=True,
 )
