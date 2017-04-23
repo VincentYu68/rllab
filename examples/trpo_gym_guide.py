@@ -8,7 +8,7 @@ from rllab.policies.gaussian_mlp_aux_policy import GaussianMLPAuxPolicy
 import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartHopper-v1"))#, record_log=False, record_video=False))
 
     policy = GaussianMLPAuxPolicy(
         env_spec=env.spec,
@@ -21,6 +21,8 @@ def run_task(*_):
     )
 
     guidepolicy = joblib.load('data/gp/policy_fric0.pkl')
+
+    #policy.set_param_values(guidepolicy.get_param_values(trainable=True), trainable=True)
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
@@ -38,10 +40,10 @@ def run_task(*_):
         gae_lambda=0.97,
         guiding_policies=[guidepolicy],
         guiding_policy_mps=[[ 0.        ,  0.17809725]],
-        guiding_policy_weight=10000,
+        guiding_policy_weight=0.1,
         guiding_policy_pool_size=100000,
-        guiding_policy_sample_size=10000,
-        guiding_policy_batch_sizes=[5000],
+        guiding_policy_sample_size=20000,
+        guiding_policy_batch_sizes=[15000],
         # Uncomment both lines (this and the plot parameter below) to enable plotting
         # plot=True,
     )
@@ -51,7 +53,7 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=8,
+    n_parallel= 8,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed

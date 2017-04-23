@@ -94,15 +94,18 @@ class TRPOGuide(NPO):
 
     def generateGuidingSamples(self):
         logger.log('Generate Guiding Samples')
+        dartenv = self.env._wrapped_env.env.env
+        if self.env._wrapped_env.monitoring:
+            dartenv = dartenv.env
         obs_dim = self.env.observation_space.shape[0]
-        if self.env._wrapped_env.env.env.train_UP:
-            obs_dim -= self.env._wrapped_env.env.env.param_manager.param_dim
+        if dartenv.train_UP:
+            obs_dim -= dartenv.param_manager.param_dim
         for gp_id in range(len(self.guiding_policies)):
             cur_sample_num = 0
             while cur_sample_num < self.guiding_policy_batch_sizes[gp_id]:
                 o = self.env.reset()
-                self.env._wrapped_env.env.env.param_manager.set_simulator_parameters(self.guiding_policy_mps[gp_id])
-                o = self.env._wrapped_env.env.env._get_obs()
+                dartenv.param_manager.set_simulator_parameters(self.guiding_policy_mps[gp_id])
+                o = dartenv._get_obs()
                 self.policy.reset()
                 while True:
                     a, agent_info = self.guiding_policies[gp_id].get_action(o[:obs_dim])
@@ -233,6 +236,7 @@ class TRPOGuide(NPO):
         logger.record_tabular('MeanKLBefore', mean_kl_before)
         logger.record_tabular('MeanKL', mean_kl)
         logger.record_tabular('dLoss', loss_before - loss_after)
+
         return dict()
 
     def train(self, continue_learning=False):
@@ -247,6 +251,7 @@ class TRPOGuide(NPO):
                 if len(self.guiding_policies) != 0:
                     self.generateGuidingSamples()
                 self.optimize_policy(itr, samples_data)
+
                 logger.log("saving snapshot...")
                 params = self.get_itr_snapshot(itr, samples_data)
                 self.current_itr = itr + 1

@@ -91,8 +91,8 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
         loss = lasagne.objectives.squared_error(prediction, aux_target_var)
         loss = loss.mean()
         params = self._aux_pred_network.get_params(trainable=True)
-        updates = lasagne.updates.sgd(
-            loss, params, learning_rate=0.0001)
+        updates = lasagne.updates.adam(
+            loss, params, learning_rate=0.001)
         self.aux_train_fn = T.function([self._aux_pred_network.input_layer.input_var, aux_target_var], loss, updates=updates)
         self.aux_loss = T.function([self._aux_pred_network.input_layer.input_var, aux_target_var], loss)
 
@@ -141,6 +141,11 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
         self._f_dist = ext.compile_function(
             inputs=[obs_var],
             outputs=[mean_var, log_std_var],
+        )
+
+        self._f_auxpred = ext.compile_function(
+            inputs=[self._aux_pred_network.input_layer.input_var],
+            outputs=[prediction],
         )
 
     def dist_info_sym(self, obs_var, state_info_vars=None):
