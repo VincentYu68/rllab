@@ -1,39 +1,34 @@
-from rllab.algos.trpo import TRPO
+from rllab.algos.trpo_guide import TRPOGuide
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import run_experiment_lite
-from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
-from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
-from rllab.policies.gaussian_hmlp_policy import GaussianHMLPPolicy
-from rllab.policies.gaussian_hmlp_phase_policy import GaussianHMLPPhasePolicy
+from rllab.policies.gaussian_mlp_aux_policy import GaussianMLPAuxPolicy
 
-import numpy as np
 import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker3d-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
 
-    policy = GaussianHMLPPhasePolicy(
+    policy = GaussianMLPAuxPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64,64),
-        subnet_split1=[8, 9, 10, 11, 12, 13, 29, 30, 31, 32, 33, 34],
-        subnet_split2=[14, 15, 16, 17, 18, 19, 35, 36, 37, 38, 39, 40],
-        sub_out_dim=6,
-        option_dim=4,
-        hlc_output_dim=3,
+        hidden_sizes=(100,50,25),
+        aux_pred_step = 1,
+        aux_pred_dim = env.action_space.shape[0],
+        skip_last=0,
+        copy_output=True,
     )
 
-    #policy = joblib.load('data/local/experiment/Walker3d_waist_onlyconcatoption3/policy.pkl')
+    guidepolicy = joblib.load('data/gp/policy_fric0.pkl')
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    algo = TRPO(
+    algo = TRPOGuide(
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=50000,
+        batch_size=100000,
         max_path_length=env.horizon,
         n_itr=1000,
         discount=0.995,
@@ -41,20 +36,27 @@ def run_task(*_):
         epopt_epsilon = 1.0,
         epopt_after_iter = 0,
         gae_lambda=0.97,
+        guiding_policies=[guidepolicy],
+        guiding_policy_mps=[[ 0.        ,  0.17809725]],
+        guiding_policy_weight=10000,
+        guiding_policy_pool_size=100000,
+        guiding_policy_sample_size=10000,
+        guiding_policy_batch_sizes=[5000],
         # Uncomment both lines (this and the plot parameter below) to enable plotting
         # plot=True,
     )
     algo.train()
 
+
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=4,
+    n_parallel=8,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    exp_name='Walker3d_waist_optionphase'
-    # plot=True
+    exp_name='hopper_cap_frictroso_guide0f',
+    # plot=True,
 )

@@ -15,8 +15,9 @@ import theano.tensor as TT
 import lasagne
 
 import numpy as np
+from rllab.sampler.utils import rollout
 
-class SimpleReplayPoolAux(object):
+class SimpleGuidingSamplePool(object):
     def __init__(
             self, max_pool_size, input_dim, output_dim):
         self.input_dim = input_dim
@@ -61,47 +62,62 @@ class SimpleReplayPoolAux(object):
     def size(self):
         return self._size
 
-class TRPOAux(NPO):
+class TRPOGuide(NPO):
     """
-    Trust Region Policy Optimization with Auxiliary tasks
+    Trust Region Policy Optimization with Guiding Policies
     """
 
     def __init__(
             self,
             optimizer=None,
             optimizer_args=None,
-            aux_pred_step = 3,
-            aux_pred_dim = 4,
-            pool_batch_size=50000,
+            guiding_policies = [],  # guiding policies for training up
+            guiding_policy_mps = [],
+            guiding_policy_weight = 0.0,
+            guiding_policy_batch_sizes = [],
+            guiding_policy_pool_size = 0,
+            guiding_policy_sample_size = 0,
             **kwargs):
         if optimizer is None:
             if optimizer_args is None:
                 optimizer_args = dict()
             optimizer = ConjugateGradientOptimizer(**optimizer_args)
-        self.pool_batch_size = pool_batch_size
-        self.aux_pred_step = aux_pred_step
-        super(TRPOAux, self).__init__(optimizer=optimizer, **kwargs)
-
-        self.aux_pred_dim = aux_pred_dim
-        self.aux_pred_pool = SimpleReplayPoolAux(50000, self.env.observation_space.shape[0] * self.aux_pred_step, aux_pred_dim)
-
-
-    def storeAuxData(self, paths):
-        for path in paths:
-            for step in range(len(path['observations'])-self.aux_pred_step):
-                obs_hist = path['observations'][step:step + self.aux_pred_step]
-                obs_hist = np.reshape(obs_hist, (obs_hist.shape[0] * obs_hist.shape[1],))
-                #reward = path['rewards'][step + self.aux_pred_step]
-                #termination = path['env_infos']['done_return'][step + self.aux_pred_step]
-                if 'aux_pred' in path['env_infos']:
-                    aux_pred = path['env_infos']['aux_pred'][step + self.aux_pred_step]
-                    self.aux_pred_pool.add_sample(obs_hist, aux_pred)
+        super(TRPOGuide, self).__init__(optimizer=optimizer, **kwargs)
+        self.guiding_policies = guiding_policies
+        if len(self.guiding_policies) != 0:
+            self.guiding_policy_mps = guiding_policy_mps
+            self.guiding_policy_weight = guiding_policy_weight
+            self.guiding_policy_batch_sizes = guiding_policy_batch_sizes
+            self.guiding_policy_sample_pool = SimpleGuidingSamplePool(guiding_policy_pool_size, self.env.observation_space.shape[0], self.env.action_space.shape[0])
+            self.guiding_policy_sample_size = guiding_policy_sample_size
 
 
-    def optimize_aux_tasks(self, epoch):
-        aux_pred_data = self.aux_pred_pool.random_batch(int(self.pool_batch_size))
+    def generateGuidingSamples(self):
+        logger.log('Generate Guiding Samples')
+        obs_dim = self.env.observation_space.shape[0]
+        if self.env._wrapped_env.env.env.train_UP:
+            obs_dim -= self.env._wrapped_env.env.env.param_manager.param_dim
+        for gp_id in range(len(self.guiding_policies)):
+            cur_sample_num = 0
+            while cur_sample_num < self.guiding_policy_batch_sizes[gp_id]:
+                o = self.env.reset()
+                self.env._wrapped_env.env.env.param_manager.set_simulator_parameters(self.guiding_policy_mps[gp_id])
+                o = self.env._wrapped_env.env.env._get_obs()
+                self.policy.reset()
+                while True:
+                    a, agent_info = self.guiding_policies[gp_id].get_action(o[:obs_dim])
+                    self.guiding_policy_sample_pool.add_sample(o, agent_info['mean'])
+                    next_o, r, d, env_info = self.env.step(a)
+                    cur_sample_num += 1
+                    if d:
+                        break
+                    o = next_o
 
-        self.policy.train_aux(aux_pred_data['inputs'], aux_pred_data['outputs'], epoch, 32)
+
+    #def optimize_guiding_tasks(self, epoch):
+    #    aux_pred_data = self.aux_pred_pool.random_batch(int(self.pool_batch_size))
+
+    #    self.policy.train_aux(aux_pred_data['inputs'], aux_pred_data['outputs'], epoch, 32)
 
     def init_opt(self):
         is_recurrent = int(self.policy.recurrent)
@@ -154,20 +170,22 @@ class TRPOAux(NPO):
             mean_kl = TT.mean(kl)
             surr_loss = - TT.mean(lr * advantage_var)
 
-        # aux net
-        aux_input_var = self.policy._aux_pred_network.input_layer.input_var
-        aux_target_var = TT.matrix('aux_targets')
-        prediction = self.policy._aux_pred_network._output
-        surr_loss += 0.01 * TT.mean(TT.square(aux_target_var - prediction))
-        '''loss = lasagne.objectives.squared_error(prediction, aux_target_var)
-        loss = loss.mean()
-        grads = theano.grad(surr_loss, wrt=self.policy.get_params(trainable=True), disconnected_inputs='warn')
-        abcd'''
         input_list = [
-                         obs_var,
-                         action_var,
-                         advantage_var,
-                     ]  + state_info_vars_list + old_dist_info_vars_list+ [aux_input_var, aux_target_var]
+                             obs_var,
+                             action_var,
+                             advantage_var,
+                         ]  + state_info_vars_list + old_dist_info_vars_list
+
+        # guiding net
+        if len(self.guiding_policies) != 0:
+            guiding_obs_var = self.policy._aux_pred_network.input_layer.input_var
+            guiding_action_var = self.env.action_space.new_tensor_variable(
+                'guiding_action',
+                extra_dims=1 + is_recurrent,
+            )
+            prediction = self.policy._aux_pred_network._output
+            surr_loss += self.guiding_policy_weight * TT.mean(TT.square(guiding_action_var - prediction))
+            input_list += [guiding_obs_var, guiding_action_var]
         if is_recurrent:
             input_list.append(valid_var)
 
@@ -191,9 +209,9 @@ class TRPOAux(NPO):
         dist_info_list = [agent_infos[k] for k in self.policy.distribution.dist_info_keys]
         all_input_values += tuple(state_info_list) + tuple(dist_info_list)
 
-        aux_pred_data = self.aux_pred_pool.random_batch(int(self.pool_batch_size))
-
-        all_input_values += tuple([np.array(aux_pred_data['inputs'])]) + tuple([aux_pred_data['outputs']])
+        if len(self.guiding_policies) != 0:
+            guiding_policy_samples = self.guiding_policy_sample_pool.random_batch(int(self.guiding_policy_sample_size))
+            all_input_values += tuple([np.array(guiding_policy_samples['inputs'])]) + tuple([guiding_policy_samples['outputs']])
 
         if self.policy.recurrent:
             all_input_values += (samples_data["valids"],)
@@ -202,33 +220,14 @@ class TRPOAux(NPO):
         mean_kl_before = self.optimizer.constraint_val(all_input_values)
         self.optimizer.optimize(all_input_values)
 
-        pred_loss = self.policy.aux_loss(aux_pred_data['inputs'], aux_pred_data['outputs'])
-
-        if itr == 0:
-            self.optimize_aux_tasks(epoch=100)
-        '''loss_after = self.optimizer.loss(all_input_values)
-        param_before = np.copy(self.policy.get_param_values(trainable=True))
-        aux_net_param_before = np.copy(self.policy._aux_pred_network.get_param_values(trainable=True))
-        if itr == 0:
-            auxstep_size = 0
-            self.optimize_aux_tasks(epoch=100)
-        else:
-            self.optimize_aux_tasks(1)
-            policy_direction = self.policy.get_param_values(trainable=True) - param_before
-            aux_net_direction = self.policy._aux_pred_network.get_param_values(trainable=True) - aux_net_param_before
-            auxstep_size = 1
-            for line_step in range(20):
-                self.policy.set_param_values(param_before + auxstep_size * policy_direction, trainable=True)
-                temp_kl = self.optimizer.constraint_val(all_input_values)
-                temp_loss = self.optimizer.loss(all_input_values)
-                if temp_loss < loss_after+abs(loss_after)*0.001 and temp_kl < self.step_size:
-                    break
-                auxstep_size *= 0.6
-            self.policy._aux_pred_network.set_param_values(aux_net_param_before + auxstep_size * aux_net_direction,trainable=True)'''
+        if len(self.guiding_policies) != 0:
+            if itr == 0:
+                self.policy.train_aux(guiding_policy_samples['inputs'], guiding_policy_samples['outputs'], 200, 32)
+            pred_loss = self.policy.aux_loss(guiding_policy_samples['inputs'], guiding_policy_samples['outputs'])
+            logger.record_tabular('GuidingSamplePredLoss', pred_loss)
 
         mean_kl = self.optimizer.constraint_val(all_input_values)
         loss_after = self.optimizer.loss(all_input_values)
-        logger.record_tabular('Prediction Loss', pred_loss)
         logger.record_tabular('LossBefore', loss_before)
         logger.record_tabular('LossAfter', loss_after)
         logger.record_tabular('MeanKLBefore', mean_kl_before)
@@ -245,7 +244,8 @@ class TRPOAux(NPO):
                 paths = self.sampler.obtain_samples(itr)
                 samples_data = self.sampler.process_samples(itr, paths)
                 self.log_diagnostics(paths)
-                self.storeAuxData(paths)
+                if len(self.guiding_policies) != 0:
+                    self.generateGuidingSamples()
                 self.optimize_policy(itr, samples_data)
                 logger.log("saving snapshot...")
                 params = self.get_itr_snapshot(itr, samples_data)

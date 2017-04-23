@@ -12,9 +12,7 @@ import numpy as np
 import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker2d-v1", record_video=True))
-
-    policy_int = joblib.load('data/local/Walker2d-walk/Walker2d_walk_2017_04_04_19_11_53_0001/policy.pkl')
+    env = normalize(GymEnv("DartWalker2d-v1", record_video=False))
 
     policy_sep = GaussianHLCPolicy(
         env_spec=env.spec,
@@ -25,7 +23,9 @@ def run_task(*_):
         #init_std=0.1,
     )
 
-    # copy parameter from integrated controller to separate controller
+    policy_sep = joblib.load('data/local/experiment/Walker2d_hlc_2/policy_0.pkl')
+
+    '''# copy parameter from integrated controller to separate controller
     hrl_pol_param = policy_int._mean_network.get_params()
     hlc_param = policy_sep._mean_network.get_params()
     llc_param = policy_sep._lowlevelnetwork.get_params()
@@ -38,7 +38,7 @@ def run_task(*_):
     for param in llc_param:
         for hrl_param in hrl_pol_param:
             if param.name == hrl_param.name:
-                param.set_value(hrl_param.get_value(borrow=True))
+                param.set_value(hrl_param.get_value(borrow=True))'''
 
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -57,7 +57,7 @@ def run_task(*_):
         env=env,
         policy=policy_sep,
         baseline=baseline,
-        batch_size=5000,
+        batch_size=15000,
         max_path_length=env.horizon,
         n_itr=200,
         discount=0.99,
@@ -79,6 +79,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    exp_name='Walker2d_hlc',
+    exp_name='Walker2d_hlc_cont',
     # plot=True
 )

@@ -39,6 +39,9 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
             dist_cls=DiagonalGaussian,
             aux_pred_step=3,
             aux_pred_dim=4,
+            skip_last = -1,
+            copy_output = False,
+
     ):
         """
         :param env_spec:
@@ -78,6 +81,8 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
             aux_pred_dim,
             None,
             mean_network,
+            skip_last=skip_last,
+            copy_output = copy_output,
         )
 
         # compile training function
@@ -89,6 +94,7 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
         updates = lasagne.updates.sgd(
             loss, params, learning_rate=0.0001)
         self.aux_train_fn = T.function([self._aux_pred_network.input_layer.input_var, aux_target_var], loss, updates=updates)
+        self.aux_loss = T.function([self._aux_pred_network.input_layer.input_var, aux_target_var], loss)
 
         l_mean = mean_network.output_layer
         obs_var = mean_network.input_layer.input_var
@@ -117,19 +123,19 @@ class GaussianMLPAuxPolicy(StochasticPolicy, LasagnePowered, Serializable):
 
         self.min_std = min_std
 
-        mean_var, log_std_var = L.get_output([l_mean, l_log_std])
+        mean_var, log_std_var, aux_pred_var = L.get_output([l_mean, l_log_std, self._aux_pred_network.output_layer])
 
         if self.min_std is not None:
             log_std_var = TT.maximum(log_std_var, np.log(min_std))
 
-        self._mean_var, self._log_std_var = mean_var, log_std_var
+        self._mean_var, self._log_std_var, self._aux_pred_var = mean_var, log_std_var, aux_pred_var
 
         self._l_mean = l_mean
         self._l_log_std = l_log_std
 
         self._dist = dist_cls(action_dim)
 
-        LasagnePowered.__init__(self, [l_mean, l_log_std])
+        LasagnePowered.__init__(self, [l_mean, l_log_std, self._aux_pred_network.output_layer])
         super(GaussianMLPAuxPolicy, self).__init__(env_spec)
 
         self._f_dist = ext.compile_function(

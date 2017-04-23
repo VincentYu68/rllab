@@ -9,7 +9,7 @@ from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
 import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker3d-v1"))
+    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
@@ -17,7 +17,7 @@ def run_task(*_):
         hidden_sizes=(64, 64),
     )
 
-    #policy = joblib.load('../data/local/experiment/experiment_2017_03_28_08_30_39_0001_hopper_3#/policy.pkl')
+    #policy = joblib.load('data/local/experiment/Walker3d_trpo_2/policy.pkl')
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
@@ -25,13 +25,14 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=50000,
+        batch_size=75000,
         max_path_length=env.horizon,
-        n_itr=2500,
-        discount=0.99,
+        n_itr=1000,
+        discount=0.995,
         step_size=0.01,
         epopt_epsilon = 1.0,
         epopt_after_iter = 0,
+        gae_lambda=0.97,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
         # plot=True,
     )
@@ -41,12 +42,12 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=10,
+    n_parallel=4,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=1,
-    exp_prefix='walker3d_trpo',
+    seed=3,
+    exp_name='hopper_capsule_fric_2',
     # plot=True,
 )

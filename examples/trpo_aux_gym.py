@@ -8,18 +8,19 @@ from rllab.misc.instrument import run_experiment_lite
 from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
 from rllab.policies.gaussian_mlp_aux_policy import GaussianMLPAuxPolicy
+import lasagne.nonlinearities as NL
 
 import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartReacher-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartWalker3d-v1", record_log=False, record_video=False))
 
     policy = GaussianMLPAuxPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
         aux_pred_step = 3,
-        aux_pred_dim = 4,
+        aux_pred_dim = 7,
     )
 
     #policy = joblib.load('data/local/experiment/walker_aux/policy.pkl')
@@ -30,16 +31,16 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=30000,
+        batch_size=50000,
         max_path_length=env.horizon,
-        n_itr=1000,
+        n_itr=500,
         discount=0.995,
         step_size=0.01,
         epopt_epsilon = 1.0,
         epopt_after_iter = 0,
         gae_lambda=0.97,
         aux_pred_step=3,
-        aux_pred_dim = 4,
+        aux_pred_dim = 7,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
         # plot=True,
     )
@@ -55,6 +56,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=3,
-    exp_name='reacher_aux2',
+    exp_name='walker_7daux_seed3_pred',
     # plot=True,
 )

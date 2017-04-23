@@ -36,6 +36,7 @@ def run_task(*_):
         hidden_sizes=(64,32),
         #subnet_split1=[5, 6, 7, 8, 9, 10, 23, 24, 25, 26, 27, 28],
         #subnet_split2=[11, 12, 13, 14, 15, 16, 29, 30, 31, 32, 33, 34],
+        hlc_output_dim = 3,
         sub_out_dim=3,
         option_dim=3,
     )

@@ -104,17 +104,17 @@ class MLP(LasagnePowered, Serializable):
 
 
 class MLPAux(LasagnePowered, Serializable):
-    def __init__(self, history_size, output_dim, output_nonlinearity, CtlNet):
+    def __init__(self, history_size, output_dim, output_nonlinearity, CtlNet, skip_last = 1, copy_output=False):
 
         Serializable.quick_init(self, locals())
 
-        l_in = L.InputLayer(shape=(None, CtlNet.input_layer.shape[1]*history_size), input_var=None)
+        l_in = L.InputLayer(shape=(None, CtlNet.input_layer.shape[1]*history_size), input_var=None, name='aux_input')
         obs_dim = CtlNet.input_layer.shape[1]
         self._layers = [l_in]
         l_hid_out = []
         for i in range(history_size):
             l_hid = SplitLayer(l_in, np.arange(i*obs_dim,(i+1) * obs_dim))
-            for h in range(len(CtlNet.layers)-3):
+            for h in range(len(CtlNet.layers)-2-skip_last):
                 l_hid = L.DenseLayer(
                     l_hid,
                     num_units=CtlNet.layers[h+1].num_units,
@@ -126,15 +126,24 @@ class MLPAux(LasagnePowered, Serializable):
                 self._layers.append(l_hid)
             l_hid_out.append(l_hid)
         l_merge = L.concat(l_hid_out)
-
-        l_out = L.DenseLayer(
-            l_merge,
-            num_units=output_dim,
-            nonlinearity=output_nonlinearity,
-            name="output",
-            W=LI.GlorotUniform(),
-            b=LI.Constant(0.),
-        )
+        if not copy_output:
+            l_out = L.DenseLayer(
+                l_merge,
+                num_units=output_dim,
+                nonlinearity=output_nonlinearity,
+                name="auxoutput",
+                W=LI.GlorotUniform(),
+                b=LI.Constant(0.),
+            )
+        else:
+            l_out = L.DenseLayer(
+                l_merge,
+                num_units=output_dim,
+                nonlinearity=output_nonlinearity,
+                name="auxoutput",
+                W=CtlNet.layers[-1].W,
+                b=CtlNet.layers[-1].b,
+            )
         self._layers.append(l_out)
         self._l_in = l_in
         self._l_out = l_out
