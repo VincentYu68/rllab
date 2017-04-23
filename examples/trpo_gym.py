@@ -28,8 +28,10 @@ def run_task(*_):
         batch_size=75000,
         max_path_length=env.horizon,
         n_itr=1000,
+
         discount=0.995,
         step_size=0.01,
+        gae_lambda=0.97,
         epopt_epsilon = 1.0,
         epopt_after_iter = 0,
         gae_lambda=0.97,
@@ -47,7 +49,7 @@ run_experiment_lite(
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=3,
-    exp_name='hopper_capsule_fric_2',
+    seed=1,
+    exp_name='dart_hopper_capsule',
     # plot=True,
 )
