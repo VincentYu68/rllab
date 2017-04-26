@@ -181,7 +181,7 @@ def _worker_run_collect(all_args):
                 if counter.value >= threshold:
                     return collected
             result, inc = collect_once(singleton_pool.G, *args)
-            collected.append(result)
+            collected += result
             with lock:
                 counter.value += inc
                 if counter.value >= threshold:

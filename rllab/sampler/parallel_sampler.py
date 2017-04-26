@@ -91,8 +91,22 @@ def _worker_set_env_params(G,params,scope=None):
 
 def _worker_collect_one_path(G, max_path_length, scope=None):
     G = _get_scoped_G(G, scope)
+    dartenv = G.env._wrapped_env.env.env
+    if G.env._wrapped_env.monitoring:
+        dartenv = dartenv.env
+    if hasattr(dartenv, 'param_manager'):
+        if dartenv.train_UP:
+            dartenv.param_manager.resample_parameters()
+            sample_num = 0
+            sampled_paths = []
+            while sample_num < G.env.horizon:
+                path = rollout(G.env, G.policy, max_path_length)
+                sampled_paths.append(path)
+                sample_num += len(path["rewards"])
+            return sampled_paths, sample_num
+
     path = rollout(G.env, G.policy, max_path_length)
-    return path, len(path["rewards"])
+    return [path], len(path["rewards"])
 
 
 def sample_paths(
