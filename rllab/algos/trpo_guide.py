@@ -100,7 +100,11 @@ class TRPOGuide(NPO):
         obs_dim = self.env.observation_space.shape[0]
         if dartenv.train_UP:
             obs_dim -= dartenv.param_manager.param_dim
+        logger.log('Generate Guiding Samples abc')
+        if self.env._wrapped_env.monitoring:
+            self.env._wrapped_env.env.enabled = False
         for gp_id in range(len(self.guiding_policies)):
+            logger.log(str(gp_id))
             cur_sample_num = 0
             while cur_sample_num < self.guiding_policy_batch_sizes[gp_id]:
                 o = self.env.reset()
@@ -115,6 +119,8 @@ class TRPOGuide(NPO):
                     if d:
                         break
                     o = next_o
+        if self.env._wrapped_env.monitoring:
+            self.env._wrapped_env.env.enabled = True
 
 
     #def optimize_guiding_tasks(self, epoch):
