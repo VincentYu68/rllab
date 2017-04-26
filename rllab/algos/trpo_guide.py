@@ -24,10 +24,10 @@ class SimpleGuidingSamplePool(object):
         self.output_dim = output_dim
         self._max_pool_size = max_pool_size
         self.input_data = np.zeros(
-            (max_pool_size, input_dim),
+            (max_pool_size, input_dim), dtype='float32'
         )
         self.output_data = np.zeros(
-            (max_pool_size, output_dim),
+            (max_pool_size, output_dim), dtype='float32'
         )
         self._bottom = 0
         self._top = 0

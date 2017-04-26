@@ -10,8 +10,8 @@ import numpy as np
 
 np.random.seed(1)
 
-env = normalize(GymEnv("DartWalker3d-v1"))
-env._wrapped_env.env.env.disableViewer=False
+env = normalize(GymEnv("Walker2d-v1"))
+#env._wrapped_env.env.env.disableViewer=False
 
 policy = GaussianHMLPPolicy(
     env_spec=env.spec,
@@ -25,7 +25,7 @@ policy = GaussianHMLPPolicy(
     option_dim=2,
 )
 
-policy = joblib.load('data/local/experiment/Walker2d_llc_2/policy_0.pkl')
+policy = joblib.load('data/trained/dartwalker.pkl')
 
 o = env.reset()
 
@@ -49,6 +49,7 @@ for i in range(1000):
         o, r, d, env_info = env.step(lowa)
     else:
         o, r, d, env_info = env.step(act)
+
 
     rew += r
 
