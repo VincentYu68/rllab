@@ -34,7 +34,21 @@ class ProgBarCounter(object):
 
 
 class SharedGlobal(object):
-    pass
+    def __init__(self):
+        # put things about model parameter re-sampling here for now (perhaps forever...)
+        self.mp_resamp = {}
+        self.mp_resamp['use_model_resample'] = False
+        if self.mp_resamp['use_model_resample']:
+            logger.log('Use model resample!')
+        else:
+            logger.log('Not using model resample!')
+        self.mp_resamp['mr_buffer'] = []
+        self.mp_resamp['mr_buffer_size'] = 100
+        #self.mp_resamp['fr_iteration_num'] = 30
+        #self.mp_resamp['fr_current_iteration'] = 0
+        self.mp_resamp['mr_store_percentage'] = 0.05
+        self.mp_resamp['mr_activated'] = False
+        self.mp_resamp['mr_probability'] = 0.5
 
 
 class StatefulPool(object):

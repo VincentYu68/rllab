@@ -10,7 +10,7 @@ import numpy as np
 
 np.random.seed(1)
 
-env = normalize(GymEnv("Walker2d-v1"))
+env = normalize(GymEnv("InvertedPendulum-v1"))
 #env._wrapped_env.env.env.disableViewer=False
 
 policy = GaussianHMLPPolicy(
@@ -25,7 +25,7 @@ policy = GaussianHMLPPolicy(
     option_dim=2,
 )
 
-policy = joblib.load('data/trained/dartwalker.pkl')
+policy = joblib.load('data/trained/dartcartpole.pkl')
 
 o = env.reset()
 

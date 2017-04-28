@@ -21,7 +21,7 @@ def run_task(*_):
     )
 
     guidepolicy = joblib.load('data/gp/policy_fric0.pkl')
-    #previouspolicy = joblib.load('data/local/experiment/dart_hopper_cap_up_2dfrictorso3/policy.pkl')
+    #previouspolicy = joblib.load('data/trained/hopper_2d_adjust.pkl')
     #policy.set_param_values(previouspolicy.get_param_values(trainable=True), trainable=True)
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -38,9 +38,9 @@ def run_task(*_):
         epopt_epsilon = 1.0,
         epopt_after_iter = 0,
         gae_lambda=0.97,
-        #guiding_policies=[guidepolicy],
+        guiding_policies=[guidepolicy],
         guiding_policy_mps=[[ 0.        ,  0.17809725]],
-        guiding_policy_weight=0.01,
+        guiding_policy_weight=0.1,
         guiding_policy_pool_size=100000,
         guiding_policy_sample_size=20000,
         guiding_policy_batch_sizes=[15000],
@@ -59,6 +59,6 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    exp_name='hopper_cap_frictroso2',
+    exp_name='hopper_cap_frictorso_guide',
     # plot=True,
 )
