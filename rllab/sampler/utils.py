@@ -4,7 +4,7 @@ import time
 
 
 def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
-            always_return_paths=False, mp_resample = None):
+            always_return_paths=False, resample_mp = None):
     observations = []
     actions = []
     rewards = []
@@ -16,14 +16,11 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
     if animated:
         env.render()
 
-    if mp_resample['mr_activated']:
-        # sample a failure case from the experience
-        sample_entry = mp_resample['mr_buffer'][np.random.randint(0, int(len(mp_resample['mr_buffer'])), 1)][0]
-        #print('sample ', sample_entry)
+    if resample_mp is not None:
         dartenv = env._wrapped_env.env.env
         if env._wrapped_env.monitoring:
             dartenv = dartenv.env
-        dartenv.param_manager.set_simulator_parameters(sample_entry)
+        dartenv.param_manager.set_simulator_parameters(resample_mp)
 
     while path_length < max_path_length:
         #print(o)
