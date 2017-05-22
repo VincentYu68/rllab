@@ -5,6 +5,7 @@ from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import run_experiment_lite
 from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
+from rllab.policies.categorical_mlp_policy import CategoricalMLPPolicy
 
 import joblib
 
@@ -16,8 +17,12 @@ def run_task(*_):
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
     )
+    '''policy = CategoricalMLPPolicy(
+        env_spec=env.spec,
+        hidden_sizes=(64, 64),
+    )'''
 
-    #policy = joblib.load('data/local/experiment/Walker3d_trpo_2/policy.pkl')
+    policy = joblib.load('data/local/experiment/hopper_footmass_0005/policy.pkl')
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
@@ -25,15 +30,15 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=100000,
+        batch_size=75000,
         max_path_length=env.horizon,
-        n_itr=1000,
+        n_itr=500,
 
         discount=0.995,
         step_size=0.01,
         gae_lambda=0.97,
-        epopt_epsilon = 1.0,
-        epopt_after_iter = 0,
+        #epopt_epsilon = 1.0,
+        #epopt_after_iter = 0,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
         # plot=True,
     )
@@ -43,12 +48,12 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=6,
+    n_parallel=4,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=3,
-    exp_name='hopper_cap_frictorso_mp_resample12_seed3',
+    exp_name='hopper_footmass_0005_2',
     # plot=True,
 )

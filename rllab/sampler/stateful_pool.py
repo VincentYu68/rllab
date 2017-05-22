@@ -37,7 +37,8 @@ class SharedGlobal(object):
     def __init__(self):
         # put things about model parameter re-sampling here for now (perhaps forever...)
         self.mp_resamp = {}
-        self.mp_resamp['use_model_resample'] = True
+        self.mp_resamp['use_model_resample'] = False
+        self.mp_resamp['use_adjusted_resample'] = False
         if self.mp_resamp['use_model_resample']:
             logger.log('Use model resample!')
         else:
@@ -46,9 +47,9 @@ class SharedGlobal(object):
         self.mp_resamp['mr_buffer_size'] = 200
         self.mp_resamp['mr_iteration_num'] = 25
         self.mp_resamp['mr_current_iteration'] = 0
-        self.mp_resamp['mr_store_percentage'] = 0.15
+        self.mp_resamp['mr_store_percentage'] = 0.05
         self.mp_resamp['mr_activated'] = False
-        self.mp_resamp['mr_probability'] = 0.05
+        self.mp_resamp['mr_probability'] = 0.02
 
 class StatefulPool(object):
     def __init__(self):
