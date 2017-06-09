@@ -37,7 +37,7 @@ class SharedGlobal(object):
     def __init__(self):
         # put things about model parameter re-sampling here for now (perhaps forever...)
         self.mp_resamp = {}
-        self.mp_resamp['use_model_resample'] = True
+        self.mp_resamp['use_model_resample'] = False
         if self.mp_resamp['use_model_resample']:
             logger.log('Use model resample!')
         else:

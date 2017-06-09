@@ -12,16 +12,16 @@ import numpy as np
 import joblib
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker3d-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartWalker3dRestricted-v1"))#, record_log=False, record_video=False))
 
-    policy = GaussianHMLPPhasePolicy(
+    policy = GaussianHMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64,64),
+        hidden_sizes=(32,32),
         subnet_split1=[8, 9, 10, 11, 12, 13, 29, 30, 31, 32, 33, 34],
         subnet_split2=[14, 15, 16, 17, 18, 19, 35, 36, 37, 38, 39, 40],
         sub_out_dim=6,
-        option_dim=4,
+        option_dim=2,
         hlc_output_dim=3,
     )
 
@@ -35,7 +35,7 @@ def run_task(*_):
         baseline=baseline,
         batch_size=50000,
         max_path_length=env.horizon,
-        n_itr=1000,
+        n_itr=500,
         discount=0.995,
         step_size=0.01,
         epopt_epsilon = 1.0,
@@ -54,7 +54,7 @@ run_experiment_lite(
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=1,
-    exp_name='Walker3d_waist_optionphase'
+    seed=16,
+    exp_name='walker_test_restricted_hrl'
     # plot=True
 )

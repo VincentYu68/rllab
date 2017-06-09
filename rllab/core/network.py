@@ -6,7 +6,7 @@ import lasagne.init as LI
 import theano.tensor as TT
 import theano
 from rllab.misc import ext
-from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer, ConstantLayer, PhaseLayer
+from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer, PhaseLayer
 from rllab.core.lasagne_powered import LasagnePowered
 from rllab.core.serializable import Serializable
 
@@ -660,12 +660,10 @@ class HMLP(LasagnePowered, Serializable):
             )
 
         l_leg1 = SplitLayer(l_in, subnet_split1)
-        l_constant1 = ConstantLayer(l_in, np.array([1.0, 0.0]))
         l_option1 = SplitLayer(l_options, np.arange(0, option_dim))
         l_concat1 = L.concat([l_leg1, l_option1])
 
         l_leg2 = SplitLayer(l_in, subnet_split2)
-        l_constant2 = ConstantLayer(l_in, np.array([0.0, 1.0]))
         l_option2 = SplitLayer(l_options, np.arange(option_dim, 2*option_dim))
         l_concat2 = L.concat([l_leg2, l_option2])
         self._layers.append(l_options)
@@ -687,9 +685,9 @@ class HMLP(LasagnePowered, Serializable):
                 W=subnet_W_init,
                 b=subnet_b_init,
             )
-            l_s_concat1 = L.concat([l_snet, l_option1])
+            #l_s_concat1 = L.concat([l_snet, l_option1])
             self._layers.append(l_snet)
-            self._layers.append(l_s_concat1)
+            #self._layers.append(l_s_concat1)
 
             l_snet2 = L.DenseLayer(
                 l_snet2,
@@ -699,12 +697,12 @@ class HMLP(LasagnePowered, Serializable):
                 W=l_snet.W,
                 b=l_snet.b,
             )
-            l_s_concat2 = L.concat([l_snet2, l_option2])
+            #l_s_concat2 = L.concat([l_snet2, l_option2])
             self._layers.append(l_snet2)
-            self._layers.append(l_s_concat2)
+            #self._layers.append(l_s_concat2)
 
-            l_snet = l_s_concat1
-            l_snet2 = l_s_concat2
+            #l_snet = l_s_concat1
+            #l_snet2 = l_s_concat2
 
         l_out1 = L.DenseLayer(
             l_snet,
@@ -763,6 +761,7 @@ class HMLP(LasagnePowered, Serializable):
     @property
     def output(self):
         return self._output
+
 
 class HMLPPhase(LasagnePowered, Serializable):
     def __init__(self, hidden_sizes, hidden_nonlinearity, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
