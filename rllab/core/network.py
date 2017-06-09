@@ -102,6 +102,78 @@ class MLP(LasagnePowered, Serializable):
     def output(self):
         return self._output
 
+class MLPAppend(LasagnePowered, Serializable):
+    def __init__(self, output_dim, hidden_sizes, hidden_nonlinearity,
+                 output_nonlinearity, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
+                 output_W_init=LI.GlorotUniform(), output_b_init=LI.Constant(0.),
+                 name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False, append_dim = 1):
+
+        Serializable.quick_init(self, locals())
+
+        if name is None:
+            prefix = ""
+        else:
+            prefix = name + "_"
+
+        if input_layer is None:
+            l_in = L.InputLayer(shape=(None,) + input_shape, input_var=input_var)
+        else:
+            l_in = input_layer
+        self._layers = [l_in]
+
+        l_append_in = SplitLayer(l_in, range(-append_dim, 0))
+
+        l_hid = l_in
+        for idx, hidden_size in enumerate(hidden_sizes):
+            l_hid = L.DenseLayer(
+                l_hid,
+                num_units=hidden_size,
+                nonlinearity=hidden_nonlinearity,
+                name="%shidden_%d" % (prefix, idx),
+                W=hidden_W_init,
+                b=hidden_b_init,
+            )
+            if batch_norm:
+                l_hid = L.batch_norm(l_hid)
+
+            l_hid = L.concat([l_hid, l_append_in])
+            
+            self._layers.append(l_hid)
+
+        l_out = L.DenseLayer(
+            l_hid,
+            num_units=output_dim,
+            nonlinearity=output_nonlinearity,
+            name="%soutput" % (prefix,),
+            W=output_W_init,
+            b=output_b_init,
+        )
+        self._layers.append(l_out)
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    # @property
+    # def input_var(self):
+    #     return self._l_in.input_var
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
 
 class MLPAux(LasagnePowered, Serializable):
     def __init__(self, history_size, output_dim, output_nonlinearity, CtlNet, skip_last = 1, copy_output=False):

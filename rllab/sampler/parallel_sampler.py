@@ -94,7 +94,7 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
     dartenv = G.env._wrapped_env.env.env
     if G.env._wrapped_env.monitoring:
         dartenv = dartenv.env
-    if hasattr(dartenv, 'param_manager'):
+    if hasattr(dartenv, 'param_manager') and G.mp_resamp['use_adjusted_resample']:
         if dartenv.train_UP:
             dartenv.param_manager.resample_parameters()
             model_parameter = dartenv.param_manager.get_simulator_parameters()
@@ -134,11 +134,11 @@ def sample_paths(
     :param max_path_length: horizon / maximum length of a single trajectory
     :return: a list of collected paths
     """
-    if singleton_pool.G.mp_resamp['use_model_resample']:
+    '''if singleton_pool.G.mp_resamp['use_model_resample']:
         if (not singleton_pool.G.mp_resamp['mr_activated']) and len(singleton_pool.G.mp_resamp['mr_buffer']) >= \
                 singleton_pool.G.mp_resamp['mr_buffer_size']:
-            if np.random.random() < singleton_pool.G.mp_resamp['mr_probability']:
-            #if iter % int(1.0/singleton_pool.G.mp_resamp['mr_probability']+singleton_pool.G.mp_resamp['mr_iteration_num']-1) == 0:
+            #if np.random.random() < singleton_pool.G.mp_resamp['mr_probability']:
+            if iter % int(1.0/singleton_pool.G.mp_resamp['mr_probability']+singleton_pool.G.mp_resamp['mr_iteration_num']-1) == 0:
                 logger.log('Activating Model Resample for this iteration!')
                 singleton_pool.G.mp_resamp['mr_activated'] = True
                 singleton_pool.G.mp_resamp['mr_current_iteration'] = singleton_pool.G.mp_resamp['mr_iteration_num']
@@ -147,7 +147,7 @@ def sample_paths(
                                                              scope)] * singleton_pool.n_parallel)
                 singleton_pool.run_each(_worker_update_mr, [('mr_activated',
                                                              True,
-                                                             scope)] * singleton_pool.n_parallel)
+                                                             scope)] * singleton_pool.n_parallel)'''
 
     singleton_pool.run_each(
         _worker_set_policy_params,
@@ -158,25 +158,6 @@ def sample_paths(
             _worker_set_env_params,
             [(env_params, scope)] * singleton_pool.n_parallel
         )
-
-    '''if singleton_pool.G.mp_resamp['use_model_resample']:
-        if (singleton_pool.G.mp_resamp['mr_activated']):
-                logger.log('Deactivating Model Resample First!')
-                singleton_pool.G.mp_resamp['mr_activated'] = False
-                singleton_pool.G.mp_resamp['mr_current_iteration'] = 0
-                singleton_pool.run_each(_worker_update_mr, [('mr_current_iteration',
-                                                             0,
-                                                             scope)] * singleton_pool.n_parallel)
-                singleton_pool.run_each(_worker_update_mr, [('mr_activated',
-                                                             False,
-                                                             scope)] * singleton_pool.n_parallel)
-
-    result1 = singleton_pool.run_collect(
-        _worker_collect_one_path,
-        threshold=max_samples * (1-singleton_pool.G.mp_resamp['mr_store_percentage']*2),
-        args=(max_path_length, scope),
-        show_prog_bar=True
-    )
 
     if singleton_pool.G.mp_resamp['use_model_resample']:
         if (not singleton_pool.G.mp_resamp['mr_activated']) and len(singleton_pool.G.mp_resamp['mr_buffer']) >= \
@@ -192,19 +173,38 @@ def sample_paths(
                                                              scope)] * singleton_pool.n_parallel)
     result2 = singleton_pool.run_collect(
         _worker_collect_one_path,
-        threshold=max_samples * (singleton_pool.G.mp_resamp['mr_store_percentage']*2),
+        threshold=max_samples * (1.0/3.0),
         args=(max_path_length, scope),
         show_prog_bar=True
     )
 
-    result = result1 + result2'''
+    if singleton_pool.G.mp_resamp['use_model_resample']:
+        if (singleton_pool.G.mp_resamp['mr_activated']):
+                logger.log('Deactivating Model Resample First!')
+                singleton_pool.G.mp_resamp['mr_activated'] = False
+                singleton_pool.G.mp_resamp['mr_current_iteration'] = 0
+                singleton_pool.run_each(_worker_update_mr, [('mr_current_iteration',
+                                                             0,
+                                                             scope)] * singleton_pool.n_parallel)
+                singleton_pool.run_each(_worker_update_mr, [('mr_activated',
+                                                             False,
+                                                             scope)] * singleton_pool.n_parallel)
 
-    result = singleton_pool.run_collect(
+    result1 = singleton_pool.run_collect(
+        _worker_collect_one_path,
+        threshold=max_samples * (2.0/3.0),
+        args=(max_path_length, scope),
+        show_prog_bar=True
+    )
+
+    result = result1 + result2
+
+    '''result = singleton_pool.run_collect(
         _worker_collect_one_path,
         threshold=max_samples,
         args=(max_path_length, scope),
         show_prog_bar=True
-    )
+    )'''
 
 
     logger.log('Collected Traj Num: '+str(len(result)))
@@ -224,7 +224,7 @@ def sample_paths(
         else:
             # augment the mr buffer
             mp_rew_raw = []
-            for path in result:
+            for path in result1:
                 mp_rew_raw.append([np.array(path['env_infos']['model_parameters'][-1]), path['rewards'].sum()])
             mp_rew_raw.sort(key=lambda x: str(x[0]))
             mp_rew = []
@@ -246,6 +246,8 @@ def sample_paths(
 
             for i in range(int(singleton_pool.G.mp_resamp['mr_store_percentage'] * len(mp_rew))):
                  singleton_pool.G.mp_resamp['mr_buffer'].append(mp_rew[i][0])
+            for i in range(-1, -int(singleton_pool.G.mp_resamp['mr_store_percentage'] * len(mp_rew))-1, -1):
+                 singleton_pool.G.mp_resamp['mr_buffer'].append(mp_rew[i][0])
             while len(singleton_pool.G.mp_resamp['mr_buffer']) > singleton_pool.G.mp_resamp['mr_buffer_size']:
                 singleton_pool.G.mp_resamp['mr_buffer'].pop(0)
 
@@ -260,6 +262,29 @@ def sample_paths(
                 sampled_mps.append(np.array(path['env_infos']['model_parameters'][-1]))
             filename = logger._snapshot_dir + '/sampled_mp_' + str(iter) + '.txt'
             np.savetxt(filename, np.array(sampled_mps))
+    if 'model_parameters' in result[0]['env_infos']:
+        mp_rew_raw = []
+        for path in result:
+            mp_rew_raw.append([np.array(path['env_infos']['model_parameters'][-1]), path['rewards'].sum()])
+        mp_rew_raw.sort(key=lambda x: str(x[0]))
+        mp_rew = []
+        i = 0
+        while True:
+            if i >= len(mp_rew_raw) - 1:
+                break
+            cur_mp = mp_rew_raw[i][0]
+            cur_rew = mp_rew_raw[i][1]
+            cur_mp_num = 1
+            for j in range(i + 1, len(mp_rew_raw)):
+                if (mp_rew_raw[j][0] - cur_mp).any():
+                    break
+                cur_rew += mp_rew_raw[j][1]
+                cur_mp_num += 1
+            i += cur_mp_num
+            mp_rew.append([np.array(cur_mp), cur_rew * 1.0 / cur_mp_num])
+        mp_rew.sort(key=lambda x: x[1])
+        filename = logger._snapshot_dir + '/mp_rew_' + str(iter) + '.pkl'
+        pickle.dump(mp_rew, open(filename, 'wb'))
 
     return result
 

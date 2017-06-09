@@ -5,7 +5,7 @@ import numpy as np
 
 from rllab.core.lasagne_layers import ParamLayer
 from rllab.core.lasagne_powered import LasagnePowered
-from rllab.core.network import MLP
+from rllab.core.network import MLP, MLPAppend
 from rllab.spaces import Box
 
 from rllab.core.serializable import Serializable
@@ -34,6 +34,7 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
             mean_network=None,
             std_network=None,
             dist_cls=DiagonalGaussian,
+            append_dim = 0 # used for Universal Policy training
     ):
         """
         :param env_spec:
@@ -59,13 +60,23 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
 
         # create network
         if mean_network is None:
-            mean_network = MLP(
-                input_shape=(obs_dim,),
-                output_dim=action_dim,
-                hidden_sizes=hidden_sizes,
-                hidden_nonlinearity=hidden_nonlinearity,
-                output_nonlinearity=output_nonlinearity,
-            )
+            if append_dim == 0:
+                mean_network = MLP(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                )
+            else:
+                mean_network = MLPAppend(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    append_dim=append_dim,
+                )
         self._mean_network = mean_network
 
         l_mean = mean_network.output_layer

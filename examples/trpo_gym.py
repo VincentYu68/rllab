@@ -5,6 +5,7 @@ from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import run_experiment_lite
 from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.policies.gaussian_rbf_policy import GaussianRBFPolicy
+from rllab.policies.categorical_mlp_policy import CategoricalMLPPolicy
 
 import joblib
 
@@ -16,8 +17,10 @@ def run_task(*_):
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
     )
-
-    #policy = joblib.load('data/local/experiment/walker_test_init/policy.pkl')
+    '''policy = CategoricalMLPPolicy(
+        env_spec=env.spec,
+        hidden_sizes=(64, 64),
+    )'''
 
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -33,8 +36,8 @@ def run_task(*_):
         discount=0.995,
         step_size=0.01,
         gae_lambda=0.97,
-        epopt_epsilon = 1.0,
-        epopt_after_iter = 0,
+        #epopt_epsilon = 1.0,
+        #epopt_after_iter = 0,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
         # plot=True,
     )
@@ -44,7 +47,7 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=3,
+    n_parallel=4,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
