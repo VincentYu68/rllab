@@ -16,6 +16,10 @@ from rllab.misc import ext
 from rllab.distributions.diagonal_gaussian import DiagonalGaussian
 import theano.tensor as TT
 
+def selu(x):
+    alpha = 1.6732632423543772848170429916717
+    scale = 1.0507009873554804934193349852946
+    return scale * TT.switch(x > 0, x, alpha * TT.expm1(x))
 
 class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
     def __init__(
