@@ -5,7 +5,7 @@ import numpy as np
 
 from rllab.core.lasagne_layers import ParamLayer
 from rllab.core.lasagne_powered import LasagnePowered
-from rllab.core.network import MLP, MLPAppend, MLP_PS
+from rllab.core.network import MLP, MLPAppend, MLP_PS, MLP_PROJ
 from rllab.spaces import Box
 
 from rllab.core.serializable import Serializable
@@ -38,10 +38,11 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
             mean_network=None,
             std_network=None,
             dist_cls=DiagonalGaussian,
-            append_dim = 0, # used for Universal Policy training
             mp_dim = 0,
             mp_sel_hid_dim = 0,
             mp_sel_num = 0,
+            mp_projection_dim = 2,
+            net_mode = 0, # 0: vanilla, 1: append mp to second layer, 2: project mp to lower space, 3: mp selection blending, 4: mp selection discrete
     ):
         """
         :param env_spec:
@@ -67,16 +68,16 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
 
         # create network
         if mean_network is None:
-            if not append_dim == 0:
+            if net_mode == 1:
                 mean_network = MLPAppend(
                     input_shape=(obs_dim,),
                     output_dim=action_dim,
                     hidden_sizes=hidden_sizes,
                     hidden_nonlinearity=hidden_nonlinearity,
                     output_nonlinearity=output_nonlinearity,
-                    append_dim=append_dim,
+                    append_dim=mp_dim,
                 )
-            elif not mp_dim == 0:
+            elif net_mode == 3:
                 mean_network = MLP_PS(
                     input_shape=(obs_dim,),
                     output_dim=action_dim,
@@ -86,6 +87,17 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     mp_dim=mp_dim,
                     mp_sel_hid_dim=mp_sel_hid_dim,
                     mp_sel_num=mp_sel_num,
+                )
+            elif net_mode == 2:
+                mean_network = MLP_PROJ(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    mp_dim=mp_dim,
+                    mp_hid_dim=16,
+                    mp_proj_dim=2,
                 )
             else:
                 mean_network = MLP(

@@ -20,6 +20,7 @@ def run_task(*_):
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
         #append_dim=2,
+        net_mode=0,
         mp_dim=2,
         mp_sel_hid_dim=32,
         mp_sel_num=4,
