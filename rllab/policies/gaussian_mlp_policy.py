@@ -5,7 +5,7 @@ import numpy as np
 
 from rllab.core.lasagne_layers import ParamLayer
 from rllab.core.lasagne_powered import LasagnePowered
-from rllab.core.network import MLP, MLPAppend
+from rllab.core.network import MLP, MLPAppend, MLP_PS
 from rllab.spaces import Box
 
 from rllab.core.serializable import Serializable
@@ -34,7 +34,10 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
             mean_network=None,
             std_network=None,
             dist_cls=DiagonalGaussian,
-            append_dim = 0 # used for Universal Policy training
+            append_dim = 0, # used for Universal Policy training
+            mp_dim = 0,
+            mp_sel_hid_dim = 0,
+            mp_sel_num = 0,
     ):
         """
         :param env_spec:
@@ -60,15 +63,7 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
 
         # create network
         if mean_network is None:
-            if append_dim == 0:
-                mean_network = MLP(
-                    input_shape=(obs_dim,),
-                    output_dim=action_dim,
-                    hidden_sizes=hidden_sizes,
-                    hidden_nonlinearity=hidden_nonlinearity,
-                    output_nonlinearity=output_nonlinearity,
-                )
-            else:
+            if not append_dim == 0:
                 mean_network = MLPAppend(
                     input_shape=(obs_dim,),
                     output_dim=action_dim,
@@ -76,6 +71,25 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     hidden_nonlinearity=hidden_nonlinearity,
                     output_nonlinearity=output_nonlinearity,
                     append_dim=append_dim,
+                )
+            elif not mp_dim == 0:
+                mean_network = MLP_PS(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    mp_dim=mp_dim,
+                    mp_sel_hid_dim=mp_sel_hid_dim,
+                    mp_sel_num=mp_sel_num,
+                )
+            else:
+                mean_network = MLP(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
                 )
         self._mean_network = mean_network
 
@@ -125,6 +139,36 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
             inputs=[obs_var],
             outputs=[mean_var, log_std_var],
         )
+
+        if not mp_dim == 0:
+            self._f_blendweight = ext.compile_function(
+                inputs = [obs_var],
+                outputs=[self._mean_network._blend_weights]
+            )
+            entropy = -TT.mean(self._mean_network._blend_weights * TT.log(self._mean_network._blend_weights))
+            self._f_weightentropy = ext.compile_function(
+                inputs = [obs_var],
+                outputs=[entropy]
+            )
+            avg_weights = TT.mean(self._mean_network._blend_weights, axis=0)
+            entropy2 = -TT.mean(avg_weights * TT.log(avg_weights))
+            self._f_choiceentropy = ext.compile_function(
+                inputs=[obs_var],
+                outputs=[entropy2]
+            )
+
+    # average entropy of the blend weight
+    def bw_entropy(self, obs_var):
+        blend_weights = L.get_output(self._mean_network.l_blend_weights, obs_var)
+        entropy = -TT.mean(blend_weights * TT.log(blend_weights))
+        return entropy
+
+    # average entropy of the blend weight across each sample
+    def bw_choice_entropy(self, obs_var):
+        blend_weights = L.get_output(self._mean_network.l_blend_weights, obs_var)
+        avg_weights = TT.mean(blend_weights, axis=0)
+        entropy = -TT.mean(avg_weights * TT.log(avg_weights))
+        return entropy
 
     def dist_info_sym(self, obs_var, state_info_vars=None):
         mean_var, log_std_var = L.get_output([self._l_mean, self._l_log_std], obs_var)
