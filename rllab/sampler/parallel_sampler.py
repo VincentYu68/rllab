@@ -213,6 +213,7 @@ def sample_paths(
         show_prog_bar=True
     )'''
 
+
     logger.log('Collected Traj Num: '+str(len(result)))
 
     if singleton_pool.G.mp_resamp['use_model_resample']:
@@ -288,9 +289,9 @@ def sample_paths(
                 singleton_pool.G.mp_resamp['mr_minimum'].pop(0)
 
         singleton_pool.G.mp_resamp['mr_buffer'] = []
+
         singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
-        #singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
-        #singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
+
         if len(singleton_pool.G.mp_resamp['mr_minimum']) == 100:
             new_buffer = copy.deepcopy(singleton_pool.G.mp_resamp['mr_minimum'])
             new_buffer.sort(key=lambda x: x[1])

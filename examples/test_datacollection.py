@@ -8,6 +8,7 @@ data = []
 for i in range(140, 149):
     data += pickle.load(open('data/local/experiment/hopper_restfoot_seed6_seg_target1/mp_rew_' + str(i) + '.pkl', 'rb'))
 
+
 x = []
 y = []
 for d in data:

@@ -14,14 +14,16 @@ import joblib
 def run_task(*_):
     env = normalize(GymEnv("DartWalker3dRestricted-v1"))#, record_log=False, record_video=False))
 
+
     policy = GaussianHMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64,64),
+        hidden_sizes=(32,32),
         subnet_split1=[8, 9, 10, 11, 12, 13, 29, 30, 31, 32, 33, 34],
         subnet_split2=[14, 15, 16, 17, 18, 19, 35, 36, 37, 38, 39, 40],
         sub_out_dim=6,
-        option_dim=1,
+
+        option_dim=2,
         hlc_output_dim=3,
     )
 
@@ -35,7 +37,7 @@ def run_task(*_):
         baseline=baseline,
         batch_size=50000,
         max_path_length=env.horizon,
-        n_itr=1000,
+        n_itr=500,
         discount=0.995,
         step_size=0.01,
         epopt_epsilon = 1.0,
@@ -56,5 +58,6 @@ run_experiment_lite(
     # will be used
     seed=7,
     exp_name='Walker3d_restricted_hrl_ctlm_nodirectionterm_uprightpen_weakwaist'
+
     # plot=True
 )

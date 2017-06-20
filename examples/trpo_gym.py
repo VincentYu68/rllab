@@ -1,5 +1,7 @@
 from rllab.algos.trpo import TRPO
+from rllab.algos.trpo_mpsel import TRPOMPSel
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab.baselines.linear_feature_baseline_mc import LinearFeatureBaselineMultiClass
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import run_experiment_lite
@@ -11,12 +13,16 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartHopper-v1"))#, record_log=False, record_video=False))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
+        #append_dim=2,
+        mp_dim=2,
+        mp_sel_hid_dim=32,
+        mp_sel_num=4,
     )
     '''policy = CategoricalMLPPolicy(
         env_spec=env.spec,
@@ -25,6 +31,7 @@ def run_task(*_):
 
     #policy = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
     '''policy_prev = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
+
 
     params = policy_prev.get_params(trainable=True)
     for paramid in range(len(params)):
@@ -38,9 +45,13 @@ def run_task(*_):
         else:
             policy.get_params(trainable=True)[paramid].set_value(params[paramid].get_value(borrow=True))'''
 
-    baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    algo = TRPO(
+    baseline = LinearFeatureBaseline(env_spec=env.spec)
+    
+    #policy = params['policy']
+    #baseline = params['baseline']
+
+    algo = TRPOMPSel(
         env=env,
         policy=policy,
         baseline=baseline,
@@ -69,5 +80,6 @@ run_experiment_lite(
     # will be used
     seed=11,
     exp_name='hopper_5d_seed11',
+
     # plot=True,
 )

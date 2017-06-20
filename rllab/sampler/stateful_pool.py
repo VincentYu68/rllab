@@ -50,6 +50,7 @@ class SharedGlobal(object):
         self.mp_resamp['mr_store_percentage'] = 0.05
         self.mp_resamp['mr_activated'] = False
         self.mp_resamp['mr_probability'] = 0.02
+        self.mp_resamp['iter'] = 0
         self.mp_resamp['mr_minimum'] = []
 
 class StatefulPool(object):

@@ -23,7 +23,6 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
         dartenv.param_manager.set_simulator_parameters(resample_mp)
 
     while path_length < max_path_length:
-        #print(o)
         a, agent_info = agent.get_action(o)
         if hasattr(agent, '_lowlevelnetwork'):
             lowa = agent.lowlevel_action(o, a)

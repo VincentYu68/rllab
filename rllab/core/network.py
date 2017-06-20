@@ -6,7 +6,7 @@ import lasagne.init as LI
 import theano.tensor as TT
 import theano
 from rllab.misc import ext
-from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer, ConstantLayer, PhaseLayer
+from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer, PhaseLayer
 from rllab.core.lasagne_powered import LasagnePowered
 from rllab.core.serializable import Serializable
 
@@ -836,6 +836,7 @@ class HMLP(LasagnePowered, Serializable):
     def output(self):
         return self._output
 
+
 class HMLPPhase(LasagnePowered, Serializable):
     def __init__(self, hidden_sizes, hidden_nonlinearity, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
                  subnet_size = (16,16), subnet_nonlinearity=LN.tanh, subnet_W_init=LI.GlorotUniform(), subnet_b_init=LI.Constant(0.),
@@ -1458,6 +1459,112 @@ class HMLPPhaseHumanoid(LasagnePowered, Serializable):
     @property
     def output_layer(self):
         return self._l_out
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
+
+
+# With Model Parameter Selection
+class MLP_PS(LasagnePowered, Serializable):
+    def __init__(self, output_dim, hidden_sizes, hidden_nonlinearity,
+                 output_nonlinearity, mp_dim, mp_sel_hid_dim, mp_sel_num, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
+                 output_W_init=LI.GlorotUniform(), output_b_init=LI.Constant(0.),
+                 name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False):
+
+        Serializable.quick_init(self, locals())
+
+        if name is None:
+            prefix = ""
+        else:
+            prefix = name + "_"
+
+        if input_layer is None:
+            l_in = L.InputLayer(shape=(None,) + input_shape, input_var=input_var)
+        else:
+            l_in = input_layer
+        self._layers = [l_in]
+
+        l_mp_in = SplitLayer(l_in, range(-mp_dim, 0))
+        self._layers.append(l_mp_in)
+
+        # selection part
+        l_mp_hid = L.DenseLayer(
+            l_mp_in,
+            num_units=mp_sel_hid_dim,
+            nonlinearity=hidden_nonlinearity,
+            name="%smp_hidden" % (prefix),
+            W=hidden_W_init,
+            b=hidden_b_init,
+        )
+        l_blendweights = L.DenseLayer(
+            l_mp_hid,
+            num_units=mp_sel_num,
+            nonlinearity=LN.softmax,
+            name="%sblend_weights" % (prefix,),
+            W=hidden_W_init,
+            b=hidden_b_init,
+        )
+        self._layers.append(l_mp_hid)
+        self._layers.append(l_blendweights)
+
+        blended_input =[]
+        # merge selection with input
+        for i in range(mp_sel_num):
+            blend_weight = SplitLayer(l_blendweights, [i])
+            extended_weights = L.concat([blend_weight]*input_shape[0])
+            blended_input.append(ElemwiseMultLayer([l_in, extended_weights]))
+
+        l_blended_iputs = L.concat(blended_input)
+        self._layers.append(l_blended_iputs)
+
+
+        l_hid = l_blended_iputs
+        for idx, hidden_size in enumerate(hidden_sizes):
+            l_hid = L.DenseLayer(
+                l_hid,
+                num_units=hidden_size,
+                nonlinearity=hidden_nonlinearity,
+                name="%shidden_%d" % (prefix, idx),
+                W=hidden_W_init,
+                b=hidden_b_init,
+            )
+            if batch_norm:
+                l_hid = L.batch_norm(l_hid)
+            self._layers.append(l_hid)
+
+        l_out = L.DenseLayer(
+            l_hid,
+            num_units=output_dim,
+            nonlinearity=output_nonlinearity,
+            name="%soutput" % (prefix,),
+            W=output_W_init,
+            b=output_b_init,
+        )
+        self._layers.append(l_out)
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+        self._blend_weights = L.get_output(l_blendweights)
+        self.l_blend_weights = l_blendweights
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    # @property
+    # def input_var(self):
+    #     return self._l_in.input_var
 
     @property
     def layers(self):
