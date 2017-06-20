@@ -97,7 +97,7 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     output_nonlinearity=output_nonlinearity,
                     mp_dim=mp_dim,
                     mp_hid_dim=16,
-                    mp_proj_dim=2,
+                    mp_proj_dim=mp_projection_dim,
                 )
             else:
                 mean_network = MLP(

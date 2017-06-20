@@ -1,7 +1,6 @@
 from rllab.algos.trpo import TRPO
 from rllab.algos.trpo_mpsel import TRPOMPSel
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.baselines.linear_feature_baseline_mc import LinearFeatureBaselineMultiClass
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import run_experiment_lite
