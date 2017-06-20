@@ -5,7 +5,7 @@ from rllab.misc import logger
 from rllab.misc import tensor_utils
 import pickle
 import numpy as np
-
+import copy
 
 def _worker_init(G, id):
     if singleton_pool.n_parallel > 1:
@@ -110,8 +110,15 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
                 sampled_paths.append(path)
                 sample_num += len(path["rewards"])
             return sampled_paths, sample_num
-
-    path = rollout(G.env, G.policy, max_path_length)
+    if hasattr(dartenv, 'param_manager') and len(G.mp_resamp['mr_buffer']) > 0 and not dartenv.resample_MP:
+        if np.random.random() < 1.0 / len(G.mp_resamp['mr_buffer']):
+            model_parameter = np.random.uniform(low=-0.05, high = 1.05, size=len(G.mp_resamp['mr_buffer'][0]))
+        else:
+            model_parameter = np.copy(G.mp_resamp['mr_buffer'][np.random.randint(len(G.mp_resamp['mr_buffer']))])
+            model_parameter += np.random.uniform(low=-0.01, high=0.01, size=len(model_parameter))
+        path = rollout(G.env, G.policy, max_path_length, resample_mp=model_parameter)
+    else:
+        path = rollout(G.env, G.policy, max_path_length)
     return [path], len(path["rewards"])
 
 
@@ -173,7 +180,7 @@ def sample_paths(
                                                              scope)] * singleton_pool.n_parallel)
     result2 = singleton_pool.run_collect(
         _worker_collect_one_path,
-        threshold=max_samples * (1.0/3.0),
+        threshold=max_samples * (1.0/4.0),
         args=(max_path_length, scope),
         show_prog_bar=True
     )
@@ -192,7 +199,7 @@ def sample_paths(
 
     result1 = singleton_pool.run_collect(
         _worker_collect_one_path,
-        threshold=max_samples * (2.0/3.0),
+        threshold=max_samples * (3.0/4.0),
         args=(max_path_length, scope),
         show_prog_bar=True
     )
@@ -262,6 +269,61 @@ def sample_paths(
                 sampled_mps.append(np.array(path['env_infos']['model_parameters'][-1]))
             filename = logger._snapshot_dir + '/sampled_mp_' + str(iter) + '.txt'
             np.savetxt(filename, np.array(sampled_mps))
+    # highly experimental!
+    '''if 'model_parameters' in result[0]['env_infos']:
+        if len(singleton_pool.G.mp_resamp['mr_buffer']) > 0:
+            # compute average performance for each blob
+            performances = []
+            for _ in singleton_pool.G.mp_resamp['mr_buffer']:
+                performances.append([])
+            for path in result:
+                mp = path['env_infos']['model_parameters'][-1]
+                dist = []
+                for mr_mp in singleton_pool.G.mp_resamp['mr_buffer']:
+                    dist.append(np.linalg.norm(mp-mr_mp))
+                if np.min(dist) < 0.02:
+                    performances[np.argmin(dist)].append(path['rewards'].sum())
+            for pi in range(len(performances)):
+                singleton_pool.G.mp_resamp['mr_minimum'].append([singleton_pool.G.mp_resamp['mr_buffer'][pi], np.mean(performances[pi])])
+            while len(singleton_pool.G.mp_resamp['mr_minimum']) > 100:
+                singleton_pool.G.mp_resamp['mr_minimum'].pop(0)
+
+        singleton_pool.G.mp_resamp['mr_buffer'] = []
+
+        singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
+
+        if len(singleton_pool.G.mp_resamp['mr_minimum']) == 100:
+            new_buffer = copy.deepcopy(singleton_pool.G.mp_resamp['mr_minimum'])
+            new_buffer.sort(key=lambda x: x[1])
+            minimal_element = new_buffer[np.random.randint(5)][0]
+            print('pick minimal from buffer: ', minimal_element)
+            print(new_buffer[0:5])
+            singleton_pool.G.mp_resamp['mr_buffer'].append(minimal_element)
+            for i in range(len(singleton_pool.G.mp_resamp['mr_minimum'])):
+                if (singleton_pool.G.mp_resamp['mr_minimum'][i][0] == minimal_element).all():
+                    singleton_pool.G.mp_resamp['mr_minimum'].pop(i)
+                    break
+            maximal_element = new_buffer[-np.random.randint(5)][0]
+            print('pick maximal from buffer: ', maximal_element)
+            singleton_pool.G.mp_resamp['mr_buffer'].append(maximal_element)
+            for i in range(len(singleton_pool.G.mp_resamp['mr_minimum'])):
+                if (singleton_pool.G.mp_resamp['mr_minimum'][i][0] == maximal_element).all():
+                    singleton_pool.G.mp_resamp['mr_minimum'].pop(i)
+                    break
+            mid_element = new_buffer[int(len(new_buffer)/2.0-2)+np.random.randint(5)][0]
+            print('pick mid from buffer: ', mid_element)
+            singleton_pool.G.mp_resamp['mr_buffer'].append(mid_element)
+            for i in range(len(singleton_pool.G.mp_resamp['mr_minimum'])):
+                if (singleton_pool.G.mp_resamp['mr_minimum'][i][0] == mid_element).all():
+                    singleton_pool.G.mp_resamp['mr_minimum'].pop(i)
+                    break
+        else:
+            singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
+            singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
+            singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
+        singleton_pool.run_each(_worker_update_mr, [('mr_buffer',
+                                                     singleton_pool.G.mp_resamp['mr_buffer'],
+                                                     scope)] * singleton_pool.n_parallel)'''
     if 'model_parameters' in result[0]['env_infos']:
         mp_rew_raw = []
         for path in result:
