@@ -2,58 +2,56 @@ __author__ = 'yuwenhao'
 
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
-from rllab.policies.gaussian_hmlp_policy import GaussianHMLPPolicy
+from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.policies.gaussian_hrl_prop_policy import GaussianHMLPPropPolicy
+import gym
+import sys
 
 import joblib
 import numpy as np
 
-np.random.seed(1)
+import matplotlib.pyplot as plt
 
-env = normalize(GymEnv("InvertedPendulum-v1"))
-#env._wrapped_env.env.env.disableViewer=False
+np.random.seed(13)
 
-policy = GaussianHMLPPolicy(
-    env_spec=env.spec,
-    # The neural network policy should have two hidden layers, each with 32 hidden units.
-    hidden_sizes=(64,16),
-    #subnet_split1=[5, 6, 7, 8, 9, 21, 22, 23, 24, 25],
-    #subnet_split2=[10, 11, 12, 13, 14, 26, 27, 28, 29, 30],
-    #sub_out_dim=6,
-    #option_dim=4,
-    sub_out_dim=3,
-    option_dim=2,
-)
-
-policy = joblib.load('data/trained/dartcartpole.pkl')
-
-o = env.reset()
-
-'''a, ainfo = policy.get_action(o)
-print(ainfo['mean'])
-policy.set_use_proprioception(False)
-a, ainfo = policy.get_action(o)
-print(ainfo['mean'])
-policy.set_use_proprioception(True)
-a, ainfo = policy.get_action(o)
-print(ainfo['mean'])
-'''
-rew = 0
-
-for i in range(1000):
-    a, ainfo = policy.get_action(o)
-    act = ainfo['mean']
-    #print(policy.get_option_layer_val(o))
-    if hasattr(policy, '_lowlevelnetwork'):
-        lowa = policy.lowlevel_action(o, act)
-        o, r, d, env_info = env.step(lowa)
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        env = gym.make(sys.argv[1])
     else:
-        o, r, d, env_info = env.step(act)
+        env = gym.make('DartWalker3dRestricted-v1')
+
+    if hasattr(env.env, 'disableViewer'):
+        env.env.disableViewer = False
 
 
-    rew += r
+    if len(sys.argv) > 2:
+        policy = joblib.load(sys.argv[2])
 
-    env.render()
-    #if d:
-    #    print('reward: ', rew)
-    #    break
+    o = env.reset()
+
+    rew = 0
+
+    thigh_torque_1 = []
+    thigh_torque_2 = []
+
+    for i in range(1000):
+        a, ainfo = policy.get_action(o)
+        act = ainfo['mean']
+        if hasattr(policy, '_lowlevelnetwork'):
+            lowa = policy.lowlevel_action(o, act)
+            o, r, d, env_info = env.step(lowa)
+        else:
+            o, r, d, env_info = env.step(act)
+
+        thigh_torque_1.append(act[3])
+        thigh_torque_2.append(act[9])
+        rew += r
+
+        env.render()
+        if d:
+            print('reward: ', rew)
+            break
+
+    plt.plot(thigh_torque_1)
+    plt.plot(thigh_torque_2)
+    plt.show()

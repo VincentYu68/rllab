@@ -213,6 +213,7 @@ def sample_paths(
         show_prog_bar=True
     )'''
 
+
     logger.log('Collected Traj Num: '+str(len(result)))
 
     if singleton_pool.G.mp_resamp['use_model_resample']:

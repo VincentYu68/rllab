@@ -13,7 +13,7 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartWalker3dRestricted-v1"))#, record_log=False, record_video=False))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
@@ -28,6 +28,7 @@ def run_task(*_):
         env_spec=env.spec,
         hidden_sizes=(64, 64),
     )'''
+
     #policy = joblib.load('data/local/experiment/hopper_reststrength_seed6_cont_cont/policy.pkl')
     '''policy_prev = joblib.load('data/trained/policy_2d_restfoot_sd6_cont_cont.pkl')
     
@@ -40,6 +41,7 @@ def run_task(*_):
             policy.get_params(trainable=True)[paramid].set_value(param_value)
         else:
             policy.get_params(trainable=True)[paramid].set_value(params[paramid].get_value(borrow=True))'''
+
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
     
