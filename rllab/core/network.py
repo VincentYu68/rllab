@@ -1608,7 +1608,7 @@ class MLP_PROJ(LasagnePowered, Serializable):
             l_proj_hid,
             num_units=mp_proj_dim,
             nonlinearity=LN.softmax,
-            name="%sblend_weights" % (prefix,),
+            name="%sproj_out" % (prefix,),
             W=hidden_W_init,
             b=hidden_b_init,
         )

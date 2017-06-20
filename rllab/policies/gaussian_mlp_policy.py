@@ -156,7 +156,7 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
             outputs=[mean_var, log_std_var],
         )
 
-        if not mp_dim == 0:
+        if net_mode == 3 or net_mode == 4:
             self._f_blendweight = ext.compile_function(
                 inputs = [obs_var],
                 outputs=[self._mean_network._blend_weights]
