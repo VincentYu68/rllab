@@ -43,8 +43,8 @@ if __name__ == '__main__':
         else:
             o, r, d, env_info = env.step(act)
 
-        thigh_torque_1.append(act[3])
-        thigh_torque_2.append(act[9])
+        #thigh_torque_1.append(act[3])
+        #thigh_torque_2.append(act[9])
         rew += r
 
         env.render()
@@ -52,6 +52,6 @@ if __name__ == '__main__':
             print('reward: ', rew)
             break
 
-    plt.plot(thigh_torque_1)
-    plt.plot(thigh_torque_2)
-    plt.show()
+    #plt.plot(thigh_torque_1)
+    #plt.plot(thigh_torque_2)
+    #plt.show()

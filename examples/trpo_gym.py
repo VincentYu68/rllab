@@ -12,7 +12,7 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1"))#, record_log=False, record_video=False))
+    env = normalize(GymEnv("DartWalker2dPendulum-v1"))#, record_log=False, record_video=False))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
@@ -29,7 +29,7 @@ def run_task(*_):
         hidden_sizes=(64, 64),
     )'''
 
-    #policy = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
+    #policy = joblib.load('data/local/experiment/walker2d_pendulum/policy.pkl')
     '''policy_prev = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
 
 
@@ -51,11 +51,11 @@ def run_task(*_):
     #policy = params['policy']
     #baseline = params['baseline']
 
-    algo = TRPOMPSel(
+    algo = TRPO(
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=450000,
+        batch_size=30000,
         max_path_length=env.horizon,
         n_itr=1000,
 
@@ -73,13 +73,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=8,
+    n_parallel=2,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=11,
-    exp_name='hopper_5d_seed11',
+    exp_name='walker2d_pendulum_balanceonly_1000finish',
 
     # plot=True,
 )
