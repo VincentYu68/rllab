@@ -166,7 +166,7 @@ def sample_paths(
             [(env_params, scope)] * singleton_pool.n_parallel
         )
 
-    if singleton_pool.G.mp_resamp['use_model_resample']:
+    '''if singleton_pool.G.mp_resamp['use_model_resample']:
         if (not singleton_pool.G.mp_resamp['mr_activated']) and len(singleton_pool.G.mp_resamp['mr_buffer']) >= \
                 singleton_pool.G.mp_resamp['mr_buffer_size']:
                 logger.log('Activating Model Resample for this iteration!')
@@ -204,14 +204,14 @@ def sample_paths(
         show_prog_bar=True
     )
 
-    result = result1 + result2
+    result = result1 + result2'''
 
-    '''result = singleton_pool.run_collect(
+    result = singleton_pool.run_collect(
         _worker_collect_one_path,
         threshold=max_samples,
         args=(max_path_length, scope),
         show_prog_bar=True
-    )'''
+    )
 
 
     logger.log('Collected Traj Num: '+str(len(result)))
@@ -324,7 +324,7 @@ def sample_paths(
         singleton_pool.run_each(_worker_update_mr, [('mr_buffer',
                                                      singleton_pool.G.mp_resamp['mr_buffer'],
                                                      scope)] * singleton_pool.n_parallel)'''
-    if 'model_parameters' in result[0]['env_infos']:
+    if 'model_parameters' in result[0]['env_infos'] and logger._snapshot_dir is not None:
         mp_rew_raw = []
         for path in result:
             mp_rew_raw.append([np.array(path['env_infos']['model_parameters'][-1]), path['rewards'].sum()])

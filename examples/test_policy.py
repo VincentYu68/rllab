@@ -20,8 +20,12 @@ if __name__ == '__main__':
     else:
         env = gym.make('DartWalker3dRestricted-v1')
 
-    if hasattr(env.env, 'disableViewer'):
-        env.env.disableViewer = False
+    #if hasattr(env.env, 'disableViewer'):
+    #    env.env.disableViewer = False
+    if hasattr(env.env, 'resample_MP'):
+        env.env.resample_MP = False
+
+    env.env.param_manager.set_simulator_parameters([0.59])
 
 
     if len(sys.argv) > 2:
@@ -31,8 +35,6 @@ if __name__ == '__main__':
 
     rew = 0
 
-    thigh_torque_1 = []
-    thigh_torque_2 = []
 
     for i in range(1000):
         a, ainfo = policy.get_action(o)
@@ -43,15 +45,11 @@ if __name__ == '__main__':
         else:
             o, r, d, env_info = env.step(act)
 
-        thigh_torque_1.append(act[3])
-        thigh_torque_2.append(act[9])
         rew += r
 
-        env.render()
+        #env.render()
         if d:
             print('reward: ', rew)
             break
 
-    plt.plot(thigh_torque_1)
-    plt.plot(thigh_torque_2)
     plt.show()
