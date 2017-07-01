@@ -27,11 +27,23 @@ class TRPOMPSel(NPO):
             self,
             optimizer=None,
             optimizer_args=None,
+            mp_dim = 2,
             **kwargs):
         if optimizer is None:
             if optimizer_args is None:
                 optimizer_args = dict()
             optimizer = ConjugateGradientOptimizer(**optimizer_args)
+
+        self.mp_dim = mp_dim
+
+        # genearte data for weight entropy related objective terms
+        self.base = np.zeros(4)
+        ent_input = []
+        for i in range(1000):
+            ent_input.append(np.concatenate([self.base, np.random.random(self.mp_dim)]).tolist())
+        self.ent_input = [np.array(ent_input)]
+
+
         super(TRPOMPSel, self).__init__(optimizer=optimizer, **kwargs)
 
 
@@ -75,6 +87,8 @@ class TRPOMPSel(NPO):
         else:
             valid_var = None
 
+        entropy_input_var = TT.matrix('entropy_inputs')
+
         dist_info_vars = self.policy.dist_info_sym(obs_var, state_info_vars)
         kl = dist.kl_sym(old_dist_info_vars, dist_info_vars)
         lr = dist.likelihood_ratio_sym(action_var, old_dist_info_vars, dist_info_vars)
@@ -88,12 +102,12 @@ class TRPOMPSel(NPO):
             surr_loss = - TT.mean(lr * advantage_var)
 
         # entropy of blended weights
-        surr_loss += 1.0 * self.policy.bw_entropy(obs_var) - 2.0 * self.policy.bw_choice_entropy(obs_var)
+        surr_loss += 1.0 * self.policy.bw_entropy(entropy_input_var) - 1.0 * self.policy.bw_choice_entropy(entropy_input_var)
         input_list = [
                          obs_var,
                          action_var,
                          advantage_var,
-                     ]  + state_info_vars_list + old_dist_info_vars_list
+                     ]  + state_info_vars_list + old_dist_info_vars_list + [entropy_input_var]
         if is_recurrent:
             input_list.append(valid_var)
 
@@ -107,15 +121,28 @@ class TRPOMPSel(NPO):
         return dict()
 
     def optimize_policy(self, itr, samples_data):
+        # update the weight entropy input list
+        ent_input = []
+        for i in range(1000):
+            ent_input.append(np.concatenate([self.base, np.random.random(self.mp_dim)]).tolist())
+        self.ent_input = [np.array(ent_input)]
+
         all_input_values = tuple(ext.extract(
             samples_data,
             "observations", "actions", "advantages"
         ))
 
+        ooo = ext.extract(
+            samples_data,
+            "observations", "actions", "advantages"
+        )
+
         agent_infos = samples_data["agent_infos"]
         state_info_list = [agent_infos[k] for k in self.policy.state_info_keys]
         dist_info_list = [agent_infos[k] for k in self.policy.distribution.dist_info_keys]
         all_input_values += tuple(state_info_list) + tuple(dist_info_list)
+
+        all_input_values += tuple(self.ent_input)
 
         if self.policy.recurrent:
             all_input_values += (samples_data["valids"],)
@@ -124,11 +151,9 @@ class TRPOMPSel(NPO):
         mean_kl_before = self.optimizer.constraint_val(all_input_values)
         self.optimizer.optimize(all_input_values)
 
-        obs_input = tuple(ext.extract(
-            samples_data,
-            "observations"))
-        blend_weight_entropy = self.policy._f_weightentropy(obs_input[0])[0]
-        blend_choice_entropy = self.policy._f_choiceentropy(obs_input[0])[0]
+        ent_input = tuple(self.ent_input)
+        blend_weight_entropy = self.policy._f_weightentropy(ent_input[0])[0]
+        blend_choice_entropy = self.policy._f_choiceentropy(ent_input[0])[0]
 
         mean_kl = self.optimizer.constraint_val(all_input_values)
         loss_after = self.optimizer.loss(all_input_values)

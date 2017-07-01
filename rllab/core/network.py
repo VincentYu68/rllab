@@ -1607,7 +1607,7 @@ class MLP_PROJ(LasagnePowered, Serializable):
         l_proj_out = L.DenseLayer(
             l_proj_hid,
             num_units=mp_proj_dim,
-            nonlinearity=LN.softmax,
+            nonlinearity=hidden_nonlinearity,
             name="%sproj_out" % (prefix,),
             W=hidden_W_init,
             b=hidden_b_init,
@@ -1666,3 +1666,295 @@ class MLP_PROJ(LasagnePowered, Serializable):
     @property
     def output(self):
         return self._output
+
+class WeightConverter(LasagnePowered, Serializable):
+    def __init__(self, input_dim = 5):
+        Serializable.quick_init(self, locals())
+        intput_shape = (input_dim,)
+
+        l_in = L.InputLayer(shape=(None,) + intput_shape, input_var=None, name='aux_input')
+        self._layers = [l_in]
+        l_hid_out = []
+
+        l_hid = L.DenseLayer(
+            l_in,
+            num_units=128,
+            nonlinearity=LN.tanh,
+            name="wchid",
+            W=LI.GlorotUniform(),
+            b=LI.Constant(0.),
+        )
+        self._layers.append(l_hid)
+
+        l_out = L.DenseLayer(
+            l_hid,
+            num_units=input_dim-1,
+            nonlinearity=LN.softmax,
+            name="wcout",
+            W=LI.GlorotUniform(),
+            b=LI.Constant(0.),
+        )
+
+        self._layers.append(l_out)
+        self._l_in = l_in
+        self._l_out = l_out
+        self._output = L.get_output(l_out)
+
+        self.pred_weight = ext.compile_function(
+            inputs=[self._l_in.input_var],
+            outputs=[self._output],
+        )
+
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
+
+# With Model Parameter Selection discrete
+class MLP_PSD(LasagnePowered, Serializable):
+    def __init__(self, output_dim, hidden_sizes, hidden_nonlinearity,
+                 output_nonlinearity, mp_dim, mp_sel_hid_dim, mp_sel_num, wc_net, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
+                 output_W_init=LI.GlorotUniform(), output_b_init=LI.Constant(0.),
+                 name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False, learn_segment=False):
+
+        Serializable.quick_init(self, locals())
+
+        if name is None:
+            prefix = ""
+        else:
+            prefix = name + "_"
+
+        if input_layer is None:
+            l_in = L.InputLayer(shape=(None,) + input_shape, input_var=input_var)
+        else:
+            l_in = input_layer
+        self._layers = [l_in]
+
+        '''l_input = SplitLayer(l_in, range(0, input_shape[0]-1))
+        l_mp_in = SplitLayer(l_in, range(-mp_dim-1, -1))'''
+        l_input = SplitLayer(l_in, np.arange(0, input_shape[0] - 1))
+        l_mp_in = SplitLayer(l_in, np.arange(input_shape[0] - 1 -mp_dim, input_shape[0] - 1))
+        l_rand_in = SplitLayer(l_in, [input_shape[0]-1])
+        self._layers.append(l_mp_in)
+        self._layers.append(l_input)
+        self._layers.append(l_rand_in)
+
+        # selection part
+        l_mp_hid = L.DenseLayer(
+            l_mp_in,
+            num_units=mp_sel_hid_dim,
+            nonlinearity=hidden_nonlinearity,
+            name="%smp_hidden" % (prefix),
+            W=hidden_W_init,
+            b=hidden_b_init,
+        )
+        l_blendweights = L.DenseLayer(
+            l_mp_hid,
+            num_units=mp_sel_num,
+            nonlinearity=LN.softmax,
+            name="%sblend_weights" % (prefix,),
+            W=hidden_W_init,
+            b=hidden_b_init,
+        )
+        self._layers.append(l_mp_hid)
+        self._layers.append(l_blendweights)
+
+        l_hidwc = L.concat([l_blendweights, l_rand_in])
+        for h in range(len(wc_net.layers) - 1):
+            l_hidwc = L.DenseLayer(
+                l_hidwc,
+                num_units=wc_net.layers[h + 1].num_units,
+                nonlinearity=wc_net.layers[h + 1].nonlinearity,
+                name="wc_hidden_%d" % (h),
+                W=wc_net.layers[h + 1].W,
+                b=wc_net.layers[h + 1].b,
+            )
+            l_hidwc.params[l_hidwc.W].remove('trainable')
+            l_hidwc.params[l_hidwc.b].remove('trainable')
+            self._layers.append(l_hidwc)
+
+
+        blended_input =[]
+        # merge selection with input
+        for i in range(mp_sel_num):
+            blend_weight = SplitLayer(l_hidwc, [i])
+            extended_weights = L.concat([blend_weight]*(input_shape[0]-1))
+            blended_input.append(ElemwiseMultLayer([l_input, extended_weights]))
+
+        l_blended_iputs = L.concat(blended_input)
+        self._layers.append(l_blended_iputs)
+
+
+        l_hid = l_blended_iputs
+        for idx, hidden_size in enumerate(hidden_sizes):
+            l_hid = L.DenseLayer(
+                l_hid,
+                num_units=hidden_size,
+                nonlinearity=hidden_nonlinearity,
+                name="%shidden_%d" % (prefix, idx),
+                W=hidden_W_init,
+                b=hidden_b_init,
+            )
+            if batch_norm:
+                l_hid = L.batch_norm(l_hid)
+            if idx > 0 and learn_segment:
+                l_hid.params[l_hid.W].remove('trainable')
+                l_hid.params[l_hid.b].remove('trainable')
+            self._layers.append(l_hid)
+
+        l_out = L.DenseLayer(
+            l_hid,
+            num_units=output_dim,
+            nonlinearity=output_nonlinearity,
+            name="%soutput" % (prefix,),
+            W=output_W_init,
+            b=output_b_init,
+        )
+        if learn_segment:
+            l_out.params[l_out.W].remove('trainable')
+            l_out.params[l_out.b].remove('trainable')
+
+        self._layers.append(l_out)
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+        self._blend_weights = L.get_output(l_blendweights)
+        self.l_blend_weights = l_blendweights
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
+
+class MLP_Split(LasagnePowered, Serializable):
+    def __init__(self, output_dim, hidden_sizes, hidden_nonlinearity,
+                 output_nonlinearity, split_layer, split_num, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
+                 output_W_init=LI.GlorotUniform(), output_b_init=LI.Constant(0.),
+                 name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False):
+
+        Serializable.quick_init(self, locals())
+
+        if name is None:
+            prefix = ""
+        else:
+            prefix = name + "_"
+
+        if input_layer is None:
+            l_in = L.InputLayer(shape=(None,) + input_shape, input_var=input_var)
+        else:
+            l_in = input_layer
+        self._layers = [l_in]
+        layer_id = 0
+
+        l_input = SplitLayer(l_in, np.arange(0, input_shape[0] - split_num))
+        l_split = SplitLayer(l_in, np.arange(input_shape[0] -split_num, input_shape[0]))
+        self._layers.append(l_input)
+        self._layers.append(l_split)
+
+        l_hid = l_input
+        for idx, hidden_size in enumerate(hidden_sizes):
+            if layer_id in split_layer:
+                split_layers = []
+                for i in range(split_num):
+                    l_hid_sub = L.DenseLayer(
+                        l_hid,
+                        num_units=hidden_size,
+                        nonlinearity=hidden_nonlinearity,
+                        name="%shidden_%d_%d" % (prefix, idx, i),
+                        W=hidden_W_init,
+                        b=hidden_b_init,
+                    )
+                    split_single_expand = L.concat([SplitLayer(l_split, [i])] * hidden_size)
+                    l_hid_sub_mult = ElemwiseMultLayer([l_hid_sub, split_single_expand])
+                    self._layers.append(l_hid_sub)
+                    split_layers.append(l_hid_sub_mult)
+                l_hid = L.ElemwiseSumLayer(split_layers)
+            else:
+                l_hid = L.DenseLayer(
+                    l_hid,
+                    num_units=hidden_size,
+                    nonlinearity=hidden_nonlinearity,
+                    name="%shidden_%d" % (prefix, idx),
+                    W=hidden_W_init,
+                    b=hidden_b_init,
+                )
+                if batch_norm:
+                    l_hid = L.batch_norm(l_hid)
+            self._layers.append(l_hid)
+            layer_id += 1
+
+        if layer_id in split_layer:
+            split_outputs = []
+            for i in range(split_num):
+                l_out_sub = L.DenseLayer(
+                    l_hid,
+                    num_units=output_dim,
+                    nonlinearity=output_nonlinearity,
+                    name="%soutput%d" % (prefix, i),
+                    W=output_W_init,
+                    b=output_b_init,
+                )
+                split_single_expand = L.concat([SplitLayer(l_split, [i])] * output_dim)
+                l_output_mult = ElemwiseMultLayer([l_out_sub, split_single_expand])
+                self._layers.append(l_out_sub)
+                split_outputs.append(l_output_mult)
+
+            l_out = L.ElemwiseSumLayer(split_outputs)
+        else:
+            l_out = L.DenseLayer(
+                l_hid,
+                num_units=output_dim,
+                nonlinearity=output_nonlinearity,
+                name="%soutput" % (prefix),
+                W=output_W_init,
+                b=output_b_init,
+            )
+
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
+

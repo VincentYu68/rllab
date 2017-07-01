@@ -5,7 +5,7 @@ import numpy as np
 
 from rllab.core.lasagne_layers import ParamLayer
 from rllab.core.lasagne_powered import LasagnePowered
-from rllab.core.network import MLP, MLPAppend, MLP_PS, MLP_PROJ
+from rllab.core.network import MLP, MLPAppend, MLP_PS, MLP_PROJ, MLP_PSD, WeightConverter, MLP_Split
 from rllab.spaces import Box
 
 from rllab.core.serializable import Serializable
@@ -15,6 +15,8 @@ from rllab.misc import logger
 from rllab.misc import ext
 from rllab.distributions.diagonal_gaussian import DiagonalGaussian
 import theano.tensor as TT
+
+import joblib
 
 def selu(x):
     alpha = 1.6732632423543772848170429916717
@@ -43,6 +45,10 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
             mp_sel_num = 0,
             mp_projection_dim = 2,
             net_mode = 0, # 0: vanilla, 1: append mp to second layer, 2: project mp to lower space, 3: mp selection blending, 4: mp selection discrete
+            wc_net_path = None,
+            learn_segment = False,
+            split_num = 1,
+            split_layer=[0],
     ):
         """
         :param env_spec:
@@ -98,6 +104,30 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     mp_dim=mp_dim,
                     mp_hid_dim=16,
                     mp_proj_dim=mp_projection_dim,
+                )
+            elif net_mode == 4:
+                wc_net = joblib.load(wc_net_path)
+                mean_network = MLP_PSD(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    mp_dim=mp_dim,
+                    mp_sel_hid_dim=mp_sel_hid_dim,
+                    mp_sel_num=mp_sel_num,
+                    wc_net=wc_net,
+                    learn_segment = learn_segment,
+                )
+            elif net_mode == 5:
+                mean_network = MLP_Split(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    split_num=split_num,
+                    split_layer=split_layer
                 )
             else:
                 mean_network = MLP(

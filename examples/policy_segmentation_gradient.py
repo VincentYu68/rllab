@@ -30,7 +30,7 @@ def get_gradient(algo, samples_data):
 
 
 if __name__ == '__main__':
-    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartCartPoleSwingUp-v1", record_log=False, record_video=False))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
@@ -40,10 +40,9 @@ if __name__ == '__main__':
         net_mode=0,
     )
 
-    policy = joblib.load(
-        'data/local/experiment/hopper_footstrength_rest1_sd4_boundedrandwalk_2000finish/policy.pkl')
+    policy = joblib.load('data/local/experiment/cartpoleswingup_mass_seed15_rotreward_all_highsamp/policy.pkl')
 
-    '''baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
+    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
     init_param = policy.get_param_values()
     init_param_obj = copy.deepcopy(policy.get_params())
@@ -84,7 +83,7 @@ if __name__ == '__main__':
         path_right = []
         for path in paths:
             mp = path['env_infos']['model_parameters'][-1]
-            if mp[1] < 0.5:
+            if mp[0] < 0.5:
                 path_left.append(path)
             else:
                 path_right.append(path)
@@ -124,18 +123,40 @@ if __name__ == '__main__':
 
     algo.shutdown_worker()
 
-    joblib.dump([total_grad_left, total_grad_right, total_grad_both], 'data/trained/gradient_temp/total_gradients.pkl', compress=True)'''
+    joblib.dump([total_grad_left, total_grad_right, total_grad_both], 'data/trained/gradient_temp/total_gradients.pkl', compress=True)
 
-    total_grad_left, total_grad_right, total_grad_both = joblib.load('data/trained/gradient_temp/total_gradients.pkl')
+    #total_grad_left, total_grad_right, total_grad_both = joblib.load('data/trained/gradient_temp/total_gradients.pkl')
 
-    grad_discrepencies = []
+    split_counts = []
+    for i in range(len(total_grad_left[0])):
+        split_counts.append(np.zeros(total_grad_left[0][i].shape))
+    for i in range(len(total_grad_left)):
+        value_list = []
+        for j in range(len(total_grad_left[i])):
+            value_list += (np.abs(total_grad_right[i][j] - total_grad_left[i][j])/np.abs(total_grad_both[i][j])).flatten().tolist()
+        value_list.sort()
+        threshold = value_list[-int(0.3*(len(value_list)))]
+        for j in range(len(total_grad_left[i])):
+            split_indices = (np.abs(total_grad_right[i][j] - total_grad_left[i][j])/np.abs(total_grad_both[i][j])) > threshold
+            split_counts[j][split_indices] += 1
+
+    for j in range(len(split_counts)):
+        plt.figure()
+        plt.title(policy.get_params()[j].name)
+        if len(split_counts[j].shape) == 2:
+            plt.imshow(split_counts[j])
+            plt.colorbar()
+        elif len(split_counts[j].shape) == 1:
+            plt.plot(split_counts[j])
+        plt.savefig('data/trained/gradient_temp/' + policy.get_params()[j].name + '.png')
+    plt.show()
+
+    '''grad_discrepencies = []
     for j in range(len(policy.get_params())):
         grad_disc = np.abs(total_grad_left[0][j] - total_grad_right[0][j]) / np.abs(total_grad_both[0][j])
         for p in range(1, len(total_grad_left)):
             grad_disc += np.abs(total_grad_left[p][j] - total_grad_right[p][j]) / np.abs(total_grad_both[p][j])
         grad_discrepencies.append(grad_disc)
-
-    
 
     for j in range(len(grad_discrepencies)):
         plt.figure()
@@ -146,7 +167,8 @@ if __name__ == '__main__':
         elif len(grad_discrepencies[j].shape) == 1:
             plt.plot(grad_discrepencies[j])
         plt.savefig('data/trained/gradient_temp/'+policy.get_params()[j].name+'.png')
-    plt.show()
+
+    plt.show()'''
 
 
 
