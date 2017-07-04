@@ -5,7 +5,7 @@ import numpy as np
 
 from rllab.core.lasagne_layers import ParamLayer
 from rllab.core.lasagne_powered import LasagnePowered
-from rllab.core.network import MLP, MLPAppend, MLP_PS, MLP_PROJ, MLP_PSD, WeightConverter, MLP_Split
+from rllab.core.network import MLP, MLPAppend, MLP_PS, MLP_PROJ, MLP_PSD, MLP_Split, MLP_SplitAct
 from rllab.spaces import Box
 
 from rllab.core.serializable import Serializable
@@ -49,6 +49,8 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
             learn_segment = False,
             split_num = 1,
             split_layer=[0],
+            split_init_net = None,
+            split_units=None,
     ):
         """
         :param env_spec:
@@ -83,17 +85,6 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     output_nonlinearity=output_nonlinearity,
                     append_dim=mp_dim,
                 )
-            elif net_mode == 3:
-                mean_network = MLP_PS(
-                    input_shape=(obs_dim,),
-                    output_dim=action_dim,
-                    hidden_sizes=hidden_sizes,
-                    hidden_nonlinearity=hidden_nonlinearity,
-                    output_nonlinearity=output_nonlinearity,
-                    mp_dim=mp_dim,
-                    mp_sel_hid_dim=mp_sel_hid_dim,
-                    mp_sel_num=mp_sel_num,
-                )
             elif net_mode == 2:
                 mean_network = MLP_PROJ(
                     input_shape=(obs_dim,),
@@ -104,6 +95,17 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     mp_dim=mp_dim,
                     mp_hid_dim=16,
                     mp_proj_dim=mp_projection_dim,
+                )
+            elif net_mode == 3:
+                mean_network = MLP_PS(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    mp_dim=mp_dim,
+                    mp_sel_hid_dim=mp_sel_hid_dim,
+                    mp_sel_num=mp_sel_num,
                 )
             elif net_mode == 4:
                 wc_net = joblib.load(wc_net_path)
@@ -128,6 +130,17 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     output_nonlinearity=output_nonlinearity,
                     split_num=split_num,
                     split_layer=split_layer
+                )
+            elif net_mode == 6:
+                mean_network = MLP_SplitAct(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    split_num=split_num,
+                    split_units =split_units,
+                    init_net=split_init_net._mean_network,
                 )
             else:
                 mean_network = MLP(
@@ -163,6 +176,8 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     name="output_log_std",
                     trainable=learn_std,
                 )
+                if net_mode == 6:
+                    l_log_std.get_params()[0].set_value(split_init_net.get_params()[-1].get_value())
 
         self.min_std = min_std
 

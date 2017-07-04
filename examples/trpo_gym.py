@@ -14,15 +14,17 @@ import numpy as np
 def run_task(*_):
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
 
-    mp_sel_num = 0
-    mp_dim = 1
+    mp_sel_num = 4
+    mp_dim = 2
+
+    policy_pre = joblib.load('data/trained/policy_2d_footstrength_sd34_1600.pkl')
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
         #append_dim=2,
-        net_mode=0,
+        net_mode=6,
         mp_dim=mp_dim,
         mp_sel_hid_dim=12,
         mp_sel_num=mp_sel_num,
@@ -30,6 +32,8 @@ def run_task(*_):
         learn_segment = False,
         split_layer=[0,1],
         split_num=mp_sel_num,
+        split_units=joblib.load('data/trained/gradient_temp/split_scheme_4p.pkl'),
+        split_init_net=policy_pre,
     )
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
     '''policy = CategoricalMLPPolicy(
@@ -102,7 +106,7 @@ def run_task(*_):
         baseline=baseline,
         batch_size=150000,
         max_path_length=env.horizon,
-        n_itr=1600,
+        n_itr=400,
 
         discount=0.995,
         step_size=0.01,
@@ -124,8 +128,8 @@ run_experiment_lite(
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=34,
-    exp_name='hopper_footstrength_rest1_sd34_boundedrandwalk_1600finish',
+    seed=18,
+    exp_name='hopper_footstrength_rest1_sd34_gradsplit2_2000finish',
 
     # plot=True,
 )
