@@ -12,25 +12,29 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1"))#, record_log=False, record_video=False))
+    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
 
+    policy_pre = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
+    split_dim = 4
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
         #append_dim=2,
-        net_mode=0,
+        net_mode=6,
         mp_dim=2,
-        mp_sel_hid_dim=32,
-        mp_sel_num=4,
+        split_num=split_dim,
+        split_units=joblib.load('data/trained/gradient_temp/split_scheme_4p_005.pkl'),
+        split_init_net=policy_pre,
     )
+    print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
     '''policy = CategoricalMLPPolicy(
         env_spec=env.spec,
         hidden_sizes=(64, 64),
     )'''
 
-    #policy = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
-    '''policy_prev = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
+    #policy = joblib.load('data/trained/policy_2d_restfoot_sd6_perturb_001_1500.pkl')
+    '''policy_prev = joblib.load('data/trained/policy_2d_footstrength_sd4_1000.pkl')
 
 
     params = policy_prev.get_params(trainable=True)
@@ -43,21 +47,21 @@ def run_task(*_):
             param_value = np.vstack([param_value] * n_class)
             policy.get_params(trainable=True)[paramid].set_value(np.array(param_value, dtype=np.float32))
         else:
-            policy.get_params(trainable=True)[paramid].set_value(params[paramid].get_value(borrow=True))'''
+            policy.get_params(trainable=True)[paramid].set_value(params[paramid].get_value(borrow=True))
+    '''
 
-
-    baseline = LinearFeatureBaseline(env_spec=env.spec)
+    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=split_dim)
     
     #policy = params['policy']
     #baseline = params['baseline']
 
-    algo = TRPOMPSel(
+    algo = TRPO(
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=450000,
+        batch_size=150000,
         max_path_length=env.horizon,
-        n_itr=1000,
+        n_itr=500,
 
         discount=0.995,
         step_size=0.01,
@@ -78,8 +82,8 @@ run_experiment_lite(
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=11,
-    exp_name='hopper_5d_seed11',
+    seed=6,
+    exp_name='hopper_restfoot_sd6_orth_gradsplit_2500finish',
 
     # plot=True,
 )

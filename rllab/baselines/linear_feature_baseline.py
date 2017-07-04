@@ -4,9 +4,10 @@ import numpy as np
 
 
 class LinearFeatureBaseline(Baseline):
-    def __init__(self, env_spec, reg_coeff=1e-5):
+    def __init__(self, env_spec, reg_coeff=1e-5, additional_dim=0):
         self._coeffs = None
         self._reg_coeff = reg_coeff
+        self.additional_dim = additional_dim
 
     @overrides
     def get_param_values(self, **tags):
@@ -18,6 +19,14 @@ class LinearFeatureBaseline(Baseline):
 
     def _features(self, path):
         o = np.clip(path["observations"], -10, 10)
+        if len(o.shape) == 2:
+            single_o = o[:, 0:o.shape[1] -self.additional_dim]
+            split_vec = o[:, o.shape[1] -self.additional_dim:]
+            stack_o = np.hstack([single_o]*self.additional_dim)
+            for oid in range(len(stack_o)):
+                for splitid in range(self.additional_dim):
+                    stack_o[oid,single_o.shape[1]*splitid:single_o.shape[1]*(splitid+1)] *= split_vec[oid, splitid]
+            o = stack_o
         l = len(path["rewards"])
         al = np.arange(l).reshape(-1, 1) / 100.0
         return np.concatenate([o, o ** 2, al, al ** 2, al ** 3, np.ones((l, 1))], axis=1)

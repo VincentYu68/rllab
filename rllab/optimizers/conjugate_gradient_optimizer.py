@@ -212,6 +212,11 @@ class ConjugateGradientOptimizer(Serializable):
                 outputs=[loss, constraint_term],
                 log_name="f_loss_constraint",
             ),
+            f_grads=lambda: ext.compile_function(
+                inputs=inputs + extra_inputs,
+                outputs=grads,
+                log_name="f_grads",
+            ),
         )
 
     def loss(self, inputs, extra_inputs=None):
