@@ -19,7 +19,7 @@ class LinearFeatureBaseline(Baseline):
 
     def _features(self, path):
         o = np.clip(path["observations"], -10, 10)
-        if len(o.shape) == 2:
+        if len(o.shape) == 2 and self.additional_dim > 0:
             single_o = o[:, 0:o.shape[1] -self.additional_dim]
             split_vec = o[:, o.shape[1] -self.additional_dim:]
             stack_o = np.hstack([single_o]*self.additional_dim)

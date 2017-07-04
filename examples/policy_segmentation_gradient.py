@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
 
     policy = joblib.load(
-        'data/trained/policy_2d_footstrength_sd34_1600.pkl')
+        'data/trained/policy_2d_restfoot_sd3_1500.pkl')
 
     # generate data
     baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
     algo.shutdown_worker()
 
-    joblib.dump([total_grads, total_grad_all, pol_weights], 'data/trained/gradient_temp/total_gradients.pkl', compress=True)
+    joblib.dump([total_grads, total_grad_all, pol_weights], 'data/trained/gradient_temp/restfoot_sd3_total_gradients.pkl', compress=True)
 
     #total_grads, total_grad_all, pol_weights = joblib.load('data/trained/gradient_temp/total_gradients.pkl')
 
@@ -151,7 +151,7 @@ if __name__ == '__main__':
         split_counts[i] *= 0
 
     total_param_size = len(policy.get_param_values())
-    split_param_size = 0.2 * total_param_size
+    split_param_size = 0.01 * total_param_size
     current_split_size = 0
     split_layer_units = []
     for i in range(len(split_indices)):
@@ -167,7 +167,7 @@ if __name__ == '__main__':
     split_layer_units.sort(key=lambda x: (x[0], x[1]))
 
 
-    joblib.dump(split_layer_units, 'data/trained/gradient_temp/split_scheme_4p.pkl', compress=True)
+    joblib.dump(split_layer_units, 'data/trained/gradient_temp/split_scheme_restfoot_sd3_orth_001.pkl', compress=True)
 
     for j in range(len(split_counts)):
         plt.figure()
