@@ -263,7 +263,7 @@ def sample_paths(
 
             singleton_pool.run_each(_worker_update_mr, [
                 ('mr_buffer', singleton_pool.G.mp_resamp['mr_buffer'], scope)] * singleton_pool.n_parallel)
-        if 'model_parameters' in result[0]['env_infos']:
+        if 'model_parameters' in result[0]['env_infos'] and logger._snapshot_dir is not None:
             sampled_mps = []
             for path in result:
                 sampled_mps.append(np.array(path['env_infos']['model_parameters'][-1]))

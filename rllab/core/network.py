@@ -1590,6 +1590,7 @@ class MLP_PROJ(LasagnePowered, Serializable):
             l_in = input_layer
         self._layers = [l_in]
 
+
         l_prop_in = SplitLayer(l_in, range(0, input_shape[0] - mp_dim))
         l_mp_in = SplitLayer(l_in, range(-mp_dim, 0))
         self._layers.append(l_prop_in)
@@ -1668,7 +1669,7 @@ class MLP_PROJ(LasagnePowered, Serializable):
         return self._output
 
 class WeightConverter(LasagnePowered, Serializable):
-    def __init__(self, input_dim = 5):
+    def __init__(self, input_dim=5):
         Serializable.quick_init(self, locals())
         intput_shape = (input_dim,)
 
@@ -1688,7 +1689,7 @@ class WeightConverter(LasagnePowered, Serializable):
 
         l_out = L.DenseLayer(
             l_hid,
-            num_units=input_dim-1,
+            num_units=input_dim - 1,
             nonlinearity=LN.softmax,
             name="wcout",
             W=LI.GlorotUniform(),
@@ -1726,9 +1727,11 @@ class WeightConverter(LasagnePowered, Serializable):
 # With Model Parameter Selection discrete
 class MLP_PSD(LasagnePowered, Serializable):
     def __init__(self, output_dim, hidden_sizes, hidden_nonlinearity,
-                 output_nonlinearity, mp_dim, mp_sel_hid_dim, mp_sel_num, wc_net, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
+                 output_nonlinearity, mp_dim, mp_sel_hid_dim, mp_sel_num, wc_net, hidden_W_init=LI.GlorotUniform(),
+                 hidden_b_init=LI.Constant(0.),
                  output_W_init=LI.GlorotUniform(), output_b_init=LI.Constant(0.),
-                 name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False, learn_segment=False):
+                 name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False,
+                 learn_segment=False):
 
         Serializable.quick_init(self, locals())
 
@@ -1746,8 +1749,8 @@ class MLP_PSD(LasagnePowered, Serializable):
         '''l_input = SplitLayer(l_in, range(0, input_shape[0]-1))
         l_mp_in = SplitLayer(l_in, range(-mp_dim-1, -1))'''
         l_input = SplitLayer(l_in, np.arange(0, input_shape[0] - 1))
-        l_mp_in = SplitLayer(l_in, np.arange(input_shape[0] - 1 -mp_dim, input_shape[0] - 1))
-        l_rand_in = SplitLayer(l_in, [input_shape[0]-1])
+        l_mp_in = SplitLayer(l_in, np.arange(input_shape[0] - 1 - mp_dim, input_shape[0] - 1))
+        l_rand_in = SplitLayer(l_in, [input_shape[0] - 1])
         self._layers.append(l_mp_in)
         self._layers.append(l_input)
         self._layers.append(l_rand_in)
@@ -1786,17 +1789,15 @@ class MLP_PSD(LasagnePowered, Serializable):
             l_hidwc.params[l_hidwc.b].remove('trainable')
             self._layers.append(l_hidwc)
 
-
-        blended_input =[]
+        blended_input = []
         # merge selection with input
         for i in range(mp_sel_num):
             blend_weight = SplitLayer(l_hidwc, [i])
-            extended_weights = L.concat([blend_weight]*(input_shape[0]-1))
+            extended_weights = L.concat([blend_weight] * (input_shape[0] - 1))
             blended_input.append(ElemwiseMultLayer([l_input, extended_weights]))
 
         l_blended_iputs = L.concat(blended_input)
         self._layers.append(l_blended_iputs)
-
 
         l_hid = l_blended_iputs
         for idx, hidden_size in enumerate(hidden_sizes):
@@ -1852,6 +1853,7 @@ class MLP_PSD(LasagnePowered, Serializable):
     def output(self):
         return self._output
 
+# MLP that splits at one layer
 class MLP_Split(LasagnePowered, Serializable):
     def __init__(self, output_dim, hidden_sizes, hidden_nonlinearity,
                  output_nonlinearity, split_layer, split_num, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),

@@ -45,12 +45,12 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
             mp_sel_num = 0,
             mp_projection_dim = 2,
             net_mode = 0, # 0: vanilla, 1: append mp to second layer, 2: project mp to lower space, 3: mp selection blending, 4: mp selection discrete
+            split_init_net=None,
+            split_units=None,
             wc_net_path = None,
             learn_segment = False,
             split_num = 1,
             split_layer=[0],
-            split_init_net = None,
-            split_units=None,
     ):
         """
         :param env_spec:
@@ -128,8 +128,19 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     hidden_sizes=hidden_sizes,
                     hidden_nonlinearity=hidden_nonlinearity,
                     output_nonlinearity=output_nonlinearity,
+                    split_layer=split_layer,
                     split_num=split_num,
-                    split_layer=split_layer
+                )
+            elif net_mode == 6:
+                mean_network = MLP_SplitAct(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    split_num=split_num,
+                    split_units=split_units,
+                    init_net=split_init_net._mean_network,
                 )
             elif net_mode == 6:
                 mean_network = MLP_SplitAct(

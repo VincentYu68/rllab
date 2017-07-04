@@ -12,7 +12,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-np.random.seed(13)
+np.random.seed(15)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
@@ -26,6 +26,11 @@ if __name__ == '__main__':
         env.env.resample_MP = False
 
     env.env.param_manager.set_simulator_parameters([0.59])
+
+    if hasattr(env.env, 'param_manager'):
+        env.env.param_manager.resample_parameters()
+        #env.env.param_manager.set_simulator_parameters([0.85])
+        env.env.resample_MP = False
 
 
     if len(sys.argv) > 2:
@@ -52,4 +57,6 @@ if __name__ == '__main__':
             print('reward: ', rew)
             break
 
-    plt.show()
+    #plt.plot(thigh_torque_1)
+    #plt.plot(thigh_torque_2)
+    #plt.show()

@@ -40,6 +40,7 @@ if __name__ == '__main__':
         net_mode=0,
     )
 
+
     policy = joblib.load(
         'data/trained/policy_2d_footstrength_sd34_1600.pkl')
 
@@ -123,6 +124,7 @@ if __name__ == '__main__':
     joblib.dump([total_grads, total_grad_all, pol_weights], 'data/trained/gradient_temp/total_gradients.pkl', compress=True)
 
     #total_grads, total_grad_all, pol_weights = joblib.load('data/trained/gradient_temp/total_gradients.pkl')
+
 
     split_counts = []
     for i in range(len(total_grads[0][0])):
