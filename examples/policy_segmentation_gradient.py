@@ -40,6 +40,7 @@ if __name__ == '__main__':
         net_mode=0,
     )
 
+
     policy = joblib.load(
         'data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
 
@@ -70,9 +71,11 @@ if __name__ == '__main__':
     algo.start_worker()
     algo.init_opt()
 
+
     total_grads = [[],[],[],[]]
     total_grad_all = []
     pol_weights = []
+
     for i in range(50):
         init_param = policy.get_param_values()
         init_param_obj = copy.deepcopy(policy.get_params())
@@ -104,12 +107,14 @@ if __name__ == '__main__':
                 tempgrad.append(policy.get_params()[j].get_value() - init_param_obj[j].get_value())
             total_grads[pid].append(tempgrad)
 
+
         # if not split
         samples_data = algo.sampler.process_samples(0, paths)
         samples_data = algo.sampler.process_samples(0, paths)
         # grad_left = get_gradient(algo, samples_data)
         policy.set_param_values(init_param)  # reset the policy parameters
         algo.optimize_policy(0, samples_data)
+
         for j in range(len(init_param_obj)):
             pol_weights.append(init_param_obj[j].get_value())
             grad_all = []
@@ -167,6 +172,7 @@ if __name__ == '__main__':
 
     joblib.dump(split_layer_units, 'data/trained/gradient_temp/split_scheme_4p_02.pkl', compress=True)
 
+
     for j in range(len(split_counts)):
         plt.figure()
         plt.title(policy.get_params()[j].name)
@@ -177,6 +183,7 @@ if __name__ == '__main__':
             plt.plot(split_counts[j])
         plt.savefig('data/trained/gradient_temp/' + policy.get_params()[j].name + '.png')
     #plt.show()
+
 
 
 

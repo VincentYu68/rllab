@@ -66,6 +66,7 @@ def run_task(*_):
         discount=0.995,
         step_size=0.01,
         gae_lambda=0.97,
+        #mp_dim = mp_dim,
         #epopt_epsilon = 1.0,
         #epopt_after_iter = 0,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
@@ -77,7 +78,7 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=8,
+    n_parallel=2,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
