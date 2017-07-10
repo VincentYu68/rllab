@@ -13,8 +13,9 @@ from rllab.misc import ext
 from rllab.misc.ext import sliced_fun
 import matplotlib.pyplot as plt
 from UPSelector import UPSelector
+from sklearn.cluster import KMeans
 
-def get_gradient(algo, samples_data):
+def get_gradient(algo, samples_data, flat = False):
     all_input_values = tuple(ext.extract(
         samples_data,
         "observations", "actions", "advantages"
@@ -24,8 +25,12 @@ def get_gradient(algo, samples_data):
     dist_info_list = [agent_infos[k] for k in algo.policy.distribution.dist_info_keys]
     all_input_values += tuple(state_info_list) + tuple(dist_info_list)
 
-    grad = sliced_fun(algo.optimizer._opt_fun["f_grads"], 1)(
-        tuple(all_input_values), tuple())
+    if flat:
+        grad = sliced_fun(algo.optimizer._opt_fun["f_grad"], 1)(
+            tuple(all_input_values), tuple())
+    else:
+        grad = sliced_fun(algo.optimizer._opt_fun["f_grads"], 1)(
+            tuple(all_input_values), tuple())
 
     return grad
 
@@ -136,16 +141,13 @@ if __name__ == '__main__':
     )
 
 
-    policy = joblib.load(
-        'data/trained/policy_3d_rest1_sd1_400.pkl')
+    policy = joblib.load('data/trained/policy_2d_restfoot_sd3_1500.pkl')
 
-    folder_name = '3d_rest1_sd1_8seg'
-    segmentation_num = 8
-    loc_weights = [0.0, 0.2, 0.5]
-    load_path_from_file = False
-    load_metric_from_file = False
-    split_percentage = 0.1
-
+    folder_name = 'restfoot_sd3_test'
+    segmentation_num = 3
+    load_path_from_file = True
+    load_metric_from_file = True
+    split_percentage = 0.2
 
     # generate data
     baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
@@ -154,7 +156,7 @@ if __name__ == '__main__':
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=300000,
+        batch_size=150000,
         max_path_length=env.horizon,
         n_itr=5,
 
@@ -173,120 +175,67 @@ if __name__ == '__main__':
         parallel_sampler.initialize(n_parallel=7)
 
         env.wrapped_env.env.env.perturb_MP = False
-        algo.start_worker()
-
         pol_weights = []
         all_paths = []
         policy_params = []
-        for i in range(50):
-            init_param = policy.get_param_values()
-            init_param_obj = copy.deepcopy(policy.get_params())
-            policy_params.append(np.copy(init_param))
+        init_param = policy.get_param_values()
+        algo.start_worker()
+        for i in range(100):
 
             #####   get data ###################
-            policy.set_param_values(init_param)  # reset the policy parameters
-            paths = algo.sampler.obtain_samples(0)
+            paths = algo.sampler.obtain_samples(i)
             all_paths.append(paths)
-
-            # if not split
-            samples_data = algo.sampler.process_samples(0, paths)
-            if i == 0:
-                samples_data = algo.sampler.process_samples(0, paths)
-            # grad_left = get_gradient(algo, samples_data)
-            policy.set_param_values(init_param)  # reset the policy parameters
-            algo.optimize_policy(0, samples_data)
-            for j in range(len(init_param_obj)):
-                pol_weights.append(init_param_obj[j].get_value())
+            print('iter ', iter)
+            for path in paths:
+                print(path['env_infos']['model_parameters'][-1], path['env_infos']['model_parameters'][0], len(path['env_infos']['model_parameters']))
 
         algo.shutdown_worker()
 
         joblib.dump(all_paths, 'data/trained/gradient_temp/'+folder_name+'/all_paths.pkl', compress=True)
-        joblib.dump([policy_params, pol_weights], 'data/trained/gradient_temp/'+folder_name+'/policy_params.pkl', compress=True)
     else:
         all_paths = joblib.load('data/trained/gradient_temp/' + folder_name + '/all_paths.pkl')
-        policy_params, pol_weights = joblib.load('data/trained/gradient_temp/'+folder_name+'/policy_params.pkl')
 
     if not load_metric_from_file:
-        # compute the optimal segmentation
-        UPSelector_X, UPSelector_Y = get_UPSelector_training_data(all_paths)
-        splitability_list=[]
-        max_splitability = -1
-        best_seletor = None
-        best_split_counts = None
-        for loc_weight in loc_weights:
-            splitability, selector, split_counts = estimate_splitability(algo, policy, all_paths, policy_params, pol_weights, segmentation_num, loc_weight, UPSelector_X, UPSelector_Y)
-            if splitability > max_splitability:
-                max_splitability = splitability
-                best_seletor = copy.deepcopy(selector)
-                best_split_counts = copy.deepcopy(split_counts)
-            splitability_list.append([loc_weight, splitability])
-            print(loc_weight, splitability)
-        joblib.dump(best_seletor, 'data/trained/gradient_temp/' + folder_name + '/UPSelector_'+folder_name+'.pkl', compress=True)
-        joblib.dump(best_split_counts, 'data/trained/gradient_temp/' + folder_name + '/split_metric.pkl', compress=True)
-        print('best selector location weight: ', best_seletor.loc_weight)
-        print(splitability_list)
+        # compute policy gradient for each path
+        one_iter_grad = []
+        mps = []
+        path_composite = []
+        for iter in range(int(len(all_paths))):
+            path_composite += all_paths[iter]
+        init_param = np.copy(policy.get_param_values())
+        for iter in range(int(len(all_paths))):
+            policy.set_param_values(init_param)
+            algo.sampler.process_samples(0, all_paths[iter])
+            samples_data = algo.sampler.process_samples(0, all_paths[iter])
+            #algo.optimize_policy(0, samples_data)
+            #samp_gradient = policy.get_param_values() - init_param
+            samp_gradient = get_gradient(algo, samples_data, flat=True)
+            '''one_grad = []
+            for weights in samp_gradient:
+                f_weight = weights.flatten()
+                f_weight /= np.linalg.norm(f_weight)
+                one_grad += f_weight.tolist()
+                samp_gradient = np.array(one_grad)'''
+
+            one_iter_grad.append(samp_gradient)
+            mps.append(all_paths[iter][0]['env_infos']['model_parameters'][-1])
+        mps = np.array(mps)
+        joblib.dump([one_iter_grad, mps], 'data/trained/gradient_temp/' + folder_name + '/pointwise_grad.pkl', compress=True)
     else:
-        best_seletor = joblib.load('data/trained/gradient_temp/' + folder_name + '/UPSelector_'+folder_name+'.pkl')
-        best_split_counts = joblib.load('data/trained/gradient_temp/' + folder_name + '/split_metric.pkl')
+        one_iter_grad, mps = joblib.load('data/trained/gradient_temp/' + folder_name + '/pointwise_grad.pkl')
+
+    for p in range(len(one_iter_grad)):
+        one_iter_grad[p] *= np.abs(policy.get_param_values())
+
+    kmeans = KMeans(n_clusters=segmentation_num)
+    kmeans.fit(one_iter_grad)
+    pred_class = kmeans.predict(one_iter_grad)
+
+    plt.figure()
+    plt.scatter(mps[:, 0], mps[:, 1], c=pred_class)
+    plt.show()
 
 
-    split_indices = []
-    for p in range(int(len(best_split_counts)/2)):
-        for col in range(best_split_counts[p*2].shape[1]):
-            split_metric = np.mean(best_split_counts[p*2][:, col]) + best_split_counts[p*2+1][col]
-            split_indices.append([[p, col], split_metric])
-    split_indices.sort(key=lambda x:x[1], reverse=True)
-
-    for i in range(int(len(best_split_counts))):
-        best_split_counts[i] *= 0
-
-    total_param_size = len(policy.get_param_values())
-    split_param_size = split_percentage * total_param_size
-    current_split_size = 0
-    split_layer_units = []
-    for i in range(len(split_indices)):
-        pm = split_indices[i][0][0]
-        col = split_indices[i][0][1]
-        best_split_counts[pm*2][:, col] = 1
-        best_split_counts[pm*2+1][col] = 1
-        current_split_size += best_split_counts[pm*2].shape[0]+1
-        split_layer_units.append([pm, col])
-        if current_split_size > int(split_param_size):
-            break
-
-    split_layer_units.sort(key=lambda x: (x[0], x[1]))
-
-    joblib.dump(split_layer_units, 'data/trained/gradient_temp/'+folder_name+'/split_scheme_'+folder_name+'_orth_'+str(split_percentage)+'.pkl', compress=True)
-
-    for j in range(len(best_split_counts)):
-        plt.figure()
-        plt.title(policy.get_params()[j].name)
-        if len(best_split_counts[j].shape) == 2:
-            plt.imshow(best_split_counts[j])
-            plt.colorbar()
-        elif len(best_split_counts[j].shape) == 1:
-            plt.plot(best_split_counts[j])
-        plt.savefig('data/trained/gradient_temp/'+folder_name+'/' + policy.get_params()[j].name + '.png')
-
-    mp_dim = best_seletor.models[0]._fit_X.shape[1]
-    if mp_dim == 2:
-        coordx = []
-        coordy = []
-        pred_data = []
-        for i in np.arange(0, 1, 0.05):
-            for j in np.arange(0, 1, 0.05):
-                reps = []
-                for rep in range(1):
-                    reps.append(best_seletor.classify(np.array([[i, j]]), stoch=False))
-                pred = np.mean(reps)
-                coordx.append(i)
-                coordy.append(j)
-                pred_data.append(pred)
-
-        plt.imshow(np.reshape(pred_data, (20, 20)))
-        plt.colorbar()
-        plt.savefig('data/trained/gradient_temp/'+folder_name+'/mp_segmentation.png')
-    #plt.show()
 
 
 

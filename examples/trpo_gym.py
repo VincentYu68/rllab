@@ -15,7 +15,7 @@ def run_task(*_):
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
 
     mp_dim = 2
-    policy_pre = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
+    policy_pre = joblib.load('data/trained/policy_2d_restfoot_sd3_1500.pkl')
     split_dim = 4
 
     policy = GaussianMLPPolicy(
@@ -31,7 +31,7 @@ def run_task(*_):
         learn_segment = False,
         split_layer=[0,1],
         split_num=split_dim,
-        split_units=joblib.load('data/trained/gradient_temp/split_scheme_4p.pkl'),
+        split_units=joblib.load('data/trained/gradient_temp/restfoot_sd3/split_scheme_restfoot_sd3_orth_0.17.pkl'),
         split_init_net=policy_pre,
     )
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
@@ -68,7 +68,7 @@ def run_task(*_):
         baseline=baseline,
         batch_size=150000,
         max_path_length=env.horizon,
-        n_itr=400,
+        n_itr=500,
 
         discount=0.995,
         step_size=0.01,
@@ -85,13 +85,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=2,
+    n_parallel=7,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=6,
-    exp_name='hopper_restfoot_sd6_orth_gradsplit_2500finish',
+    seed=3,
+    exp_name='hopper_restfoot_sd3_gradsplit017_2000finish',
 
     # plot=True,
 )
