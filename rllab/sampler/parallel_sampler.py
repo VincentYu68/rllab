@@ -4,8 +4,10 @@ from rllab.misc import ext
 from rllab.misc import logger
 from rllab.misc import tensor_utils
 import pickle
+import joblib
 import numpy as np
 import copy
+
 
 def _worker_init(G, id):
     if singleton_pool.n_parallel > 1:
@@ -110,11 +112,19 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
                 sampled_paths.append(path)
                 sample_num += len(path["rewards"])
             return sampled_paths, sample_num
+
+    if G.ensemble_dynamics['use_ens_dyn']:
+        dartenv.dyn_models = G.ensemble_dynamics['dyn_models']
+        dartenv.dyn_model_id = G.ensemble_dynamics['dyn_model_choice']
+        if len(G.ensemble_dynamics['base_paths']) > 0:
+            dartenv.base_path = G.ensemble_dynamics['base_paths'][np.random.randint(0, len(G.ensemble_dynamics['base_paths']))]
+            dartenv.transition_locator = G.ensemble_dynamics['transition_locator']
+
     if hasattr(dartenv, 'param_manager') and len(G.mp_resamp['mr_buffer']) > 0 and not dartenv.resample_MP:
         if np.random.random() < 1.0 / len(G.mp_resamp['mr_buffer']):
             model_parameter = np.random.uniform(low=-0.05, high = 1.05, size=len(G.mp_resamp['mr_buffer'][0]))
         else:
-            model_parameter = np.copy(G.mp_resamp['mr_buffer'][np.random.randint(len(G.mp_resamp['mr_buffer']))])
+            model_parameter = np.copy(G.mp_resamp['mr_buffer'][np.random.randint(0, len(G.mp_resamp['mr_buffer']))])
             model_parameter += np.random.uniform(low=-0.01, high=0.01, size=len(model_parameter))
         path = rollout(G.env, G.policy, max_path_length, resample_mp=model_parameter)
     else:
@@ -125,6 +135,10 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
 def _worker_update_mr(G, paramname, newval, scope):
     G = _get_scoped_G(G, scope)
     G.mp_resamp[paramname] = newval
+
+def _worker_update_dyn(G, paramname, newval, scope):
+    G = _get_scoped_G(G, scope)
+    G.ensemble_dynamics[paramname] = newval
 
 def sample_paths(
         policy_params,
@@ -141,20 +155,6 @@ def sample_paths(
     :param max_path_length: horizon / maximum length of a single trajectory
     :return: a list of collected paths
     """
-    '''if singleton_pool.G.mp_resamp['use_model_resample']:
-        if (not singleton_pool.G.mp_resamp['mr_activated']) and len(singleton_pool.G.mp_resamp['mr_buffer']) >= \
-                singleton_pool.G.mp_resamp['mr_buffer_size']:
-            #if np.random.random() < singleton_pool.G.mp_resamp['mr_probability']:
-            if iter % int(1.0/singleton_pool.G.mp_resamp['mr_probability']+singleton_pool.G.mp_resamp['mr_iteration_num']-1) == 0:
-                logger.log('Activating Model Resample for this iteration!')
-                singleton_pool.G.mp_resamp['mr_activated'] = True
-                singleton_pool.G.mp_resamp['mr_current_iteration'] = singleton_pool.G.mp_resamp['mr_iteration_num']
-                singleton_pool.run_each(_worker_update_mr, [('mr_current_iteration',
-                                                             singleton_pool.G.mp_resamp['mr_iteration_num'],
-                                                             scope)] * singleton_pool.n_parallel)
-                singleton_pool.run_each(_worker_update_mr, [('mr_activated',
-                                                             True,
-                                                             scope)] * singleton_pool.n_parallel)'''
 
     singleton_pool.run_each(
         _worker_set_policy_params,
@@ -166,164 +166,69 @@ def sample_paths(
             [(env_params, scope)] * singleton_pool.n_parallel
         )
 
-    '''if singleton_pool.G.mp_resamp['use_model_resample']:
-        if (not singleton_pool.G.mp_resamp['mr_activated']) and len(singleton_pool.G.mp_resamp['mr_buffer']) >= \
-                singleton_pool.G.mp_resamp['mr_buffer_size']:
-                logger.log('Activating Model Resample for this iteration!')
-                singleton_pool.G.mp_resamp['mr_activated'] = True
-                singleton_pool.G.mp_resamp['mr_current_iteration'] = 1
-                singleton_pool.run_each(_worker_update_mr, [('mr_current_iteration',
-                                                             1,
-                                                             scope)] * singleton_pool.n_parallel)
-                singleton_pool.run_each(_worker_update_mr, [('mr_activated',
-                                                             True,
-                                                             scope)] * singleton_pool.n_parallel)
-    result2 = singleton_pool.run_collect(
-        _worker_collect_one_path,
-        threshold=max_samples * (1.0/4.0),
-        args=(max_path_length, scope),
-        show_prog_bar=True
-    )
 
-    if singleton_pool.G.mp_resamp['use_model_resample']:
-        if (singleton_pool.G.mp_resamp['mr_activated']):
-                logger.log('Deactivating Model Resample First!')
-                singleton_pool.G.mp_resamp['mr_activated'] = False
-                singleton_pool.G.mp_resamp['mr_current_iteration'] = 0
-                singleton_pool.run_each(_worker_update_mr, [('mr_current_iteration',
-                                                             0,
-                                                             scope)] * singleton_pool.n_parallel)
-                singleton_pool.run_each(_worker_update_mr, [('mr_activated',
-                                                             False,
-                                                             scope)] * singleton_pool.n_parallel)
+    if singleton_pool.G.ensemble_dynamics['use_ens_dyn'] and iter > 0:
+        singleton_pool.run_each(_worker_update_dyn, [('dyn_model_choice',
+                                                             0, scope)] * singleton_pool.n_parallel)
+        result1 = singleton_pool.run_collect(
+            _worker_collect_one_path,
+            threshold=max_samples * (1.0/5.0),
+            args=(max_path_length, scope),
+            show_prog_bar=True
+        )
 
-    result1 = singleton_pool.run_collect(
-        _worker_collect_one_path,
-        threshold=max_samples * (3.0/4.0),
-        args=(max_path_length, scope),
-        show_prog_bar=True
-    )
+        singleton_pool.run_each(_worker_update_dyn, [('dyn_model_choice',
+                                                             1, scope)] * singleton_pool.n_parallel)
+        singleton_pool.run_each(_worker_update_dyn, [('base_paths',
+                                                             result1, scope)] * singleton_pool.n_parallel)
 
-    result = result1 + result2'''
+        result2 = singleton_pool.run_collect(
+            _worker_collect_one_path,
+            threshold=max_samples * (4.0/5.0),
+            args=(max_path_length, scope),
+            show_prog_bar=True
+        )
 
-    result = singleton_pool.run_collect(
-        _worker_collect_one_path,
-        threshold=max_samples,
-        args=(max_path_length, scope),
-        show_prog_bar=True
-    )
+        result = result1 + result2
+    else:
+        result = singleton_pool.run_collect(
+            _worker_collect_one_path,
+            threshold=max_samples,
+            args=(max_path_length, scope),
+            show_prog_bar=True
+        )
 
 
     logger.log('Collected Traj Num: '+str(len(result)))
 
-    if singleton_pool.G.mp_resamp['use_model_resample']:
-        if singleton_pool.G.mp_resamp['mr_activated']:
-            singleton_pool.G.mp_resamp['mr_current_iteration'] -= 1
-            singleton_pool.run_each(_worker_update_mr, [('mr_current_iteration',
-                                                         singleton_pool.G.mp_resamp['mr_current_iteration'],
-                                                         scope)] * singleton_pool.n_parallel)
-            if singleton_pool.G.mp_resamp['mr_current_iteration'] == 0:
-                logger.log('Deactivating Model Resampling!')
-                singleton_pool.G.mp_resamp['mr_activated'] = False
-                singleton_pool.run_each(_worker_update_mr, [('mr_activated',
-                                                     singleton_pool.G.mp_resamp['mr_activated'],
-                                                     scope)] * singleton_pool.n_parallel)
-        else:
-            # augment the mr buffer
-            mp_rew_raw = []
-            for path in result1:
-                mp_rew_raw.append([np.array(path['env_infos']['model_parameters'][-1]), path['rewards'].sum()])
-            mp_rew_raw.sort(key=lambda x: str(x[0]))
-            mp_rew = []
-            i = 0
-            while True:
-                if i >= len(mp_rew_raw)-1:
-                    break
-                cur_mp = mp_rew_raw[i][0]
-                cur_rew = mp_rew_raw[i][1]
-                cur_mp_num = 1
-                for j in range(i+1, len(mp_rew_raw)):
-                    if (mp_rew_raw[j][0] - cur_mp).any():
-                        break
-                    cur_rew += mp_rew_raw[j][1]
-                    cur_mp_num += 1
-                i += cur_mp_num
-                mp_rew.append([np.array(cur_mp), cur_rew*1.0/cur_mp_num])
-            mp_rew.sort(key=lambda x: x[1])
+    if singleton_pool.G.ensemble_dynamics['use_ens_dyn']:
+        dyn_training_x = []
+        dyn_training_y = []
+        dyn_training_result = result
+        if iter > 0:
+            dyn_training_result = result1
+        for path in dyn_training_result:
+            for state_act in path['env_infos']['state_act']:
+                dyn_training_x.append(state_act)
+            for next_state in path['env_infos']['next_state']:
+                dyn_training_y.append(next_state)
+        singleton_pool.G.ensemble_dynamics['training_buffer_x'] += dyn_training_x
+        singleton_pool.G.ensemble_dynamics['training_buffer_y'] += dyn_training_y
+        if len(singleton_pool.G.ensemble_dynamics['training_buffer_x']) > 100000:
+            singleton_pool.G.ensemble_dynamics['training_buffer_x'] = singleton_pool.G.ensemble_dynamics['training_buffer_x'][-100000:]
+            singleton_pool.G.ensemble_dynamics['training_buffer_y'] = singleton_pool.G.ensemble_dynamics['training_buffer_y'][-100000:]
+        singleton_pool.G.ensemble_dynamics['dyn_models'][0].fit(dyn_training_x, dyn_training_y)
+        singleton_pool.G.ensemble_dynamics['transition_locator'].fit(singleton_pool.G.ensemble_dynamics['training_buffer_x'], singleton_pool.G.ensemble_dynamics['training_buffer_y'])
+        print('fitted dynamic models and transition locator')
+        singleton_pool.run_each(_worker_update_dyn, [('dyn_models',
+                                                             singleton_pool.G.ensemble_dynamics['dyn_models'], scope)] * singleton_pool.n_parallel)
+        singleton_pool.run_each(_worker_update_dyn, [('transition_locator',
+                                                             singleton_pool.G.ensemble_dynamics['transition_locator'], scope)] * singleton_pool.n_parallel)
+        joblib.dump(singleton_pool.G.ensemble_dynamics['dyn_models'], 'data/trained/dyn_models.pkl', compress=True)
 
-            for i in range(int(singleton_pool.G.mp_resamp['mr_store_percentage'] * len(mp_rew))):
-                 singleton_pool.G.mp_resamp['mr_buffer'].append(mp_rew[i][0])
-            for i in range(-1, -int(singleton_pool.G.mp_resamp['mr_store_percentage'] * len(mp_rew))-1, -1):
-                 singleton_pool.G.mp_resamp['mr_buffer'].append(mp_rew[i][0])
-            while len(singleton_pool.G.mp_resamp['mr_buffer']) > singleton_pool.G.mp_resamp['mr_buffer_size']:
-                singleton_pool.G.mp_resamp['mr_buffer'].pop(0)
 
-            filename = logger._snapshot_dir + '/mr_buffer_' + str(iter) + '.txt'
-            np.savetxt(filename, np.array(singleton_pool.G.mp_resamp['mr_buffer']))
 
-            singleton_pool.run_each(_worker_update_mr, [
-                ('mr_buffer', singleton_pool.G.mp_resamp['mr_buffer'], scope)] * singleton_pool.n_parallel)
-        if 'model_parameters' in result[0]['env_infos'] and logger._snapshot_dir is not None:
-            sampled_mps = []
-            for path in result:
-                sampled_mps.append(np.array(path['env_infos']['model_parameters'][-1]))
-            filename = logger._snapshot_dir + '/sampled_mp_' + str(iter) + '.txt'
-            np.savetxt(filename, np.array(sampled_mps))
-    # highly experimental!
-    '''if 'model_parameters' in result[0]['env_infos']:
-        if len(singleton_pool.G.mp_resamp['mr_buffer']) > 0:
-            # compute average performance for each blob
-            performances = []
-            for _ in singleton_pool.G.mp_resamp['mr_buffer']:
-                performances.append([])
-            for path in result:
-                mp = path['env_infos']['model_parameters'][-1]
-                dist = []
-                for mr_mp in singleton_pool.G.mp_resamp['mr_buffer']:
-                    dist.append(np.linalg.norm(mp-mr_mp))
-                if np.min(dist) < 0.02:
-                    performances[np.argmin(dist)].append(path['rewards'].sum())
-            for pi in range(len(performances)):
-                singleton_pool.G.mp_resamp['mr_minimum'].append([singleton_pool.G.mp_resamp['mr_buffer'][pi], np.mean(performances[pi])])
-            while len(singleton_pool.G.mp_resamp['mr_minimum']) > 100:
-                singleton_pool.G.mp_resamp['mr_minimum'].pop(0)
 
-        singleton_pool.G.mp_resamp['mr_buffer'] = []
-
-        singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
-
-        if len(singleton_pool.G.mp_resamp['mr_minimum']) == 100:
-            new_buffer = copy.deepcopy(singleton_pool.G.mp_resamp['mr_minimum'])
-            new_buffer.sort(key=lambda x: x[1])
-            minimal_element = new_buffer[np.random.randint(5)][0]
-            print('pick minimal from buffer: ', minimal_element)
-            print(new_buffer[0:5])
-            singleton_pool.G.mp_resamp['mr_buffer'].append(minimal_element)
-            for i in range(len(singleton_pool.G.mp_resamp['mr_minimum'])):
-                if (singleton_pool.G.mp_resamp['mr_minimum'][i][0] == minimal_element).all():
-                    singleton_pool.G.mp_resamp['mr_minimum'].pop(i)
-                    break
-            maximal_element = new_buffer[-np.random.randint(5)][0]
-            print('pick maximal from buffer: ', maximal_element)
-            singleton_pool.G.mp_resamp['mr_buffer'].append(maximal_element)
-            for i in range(len(singleton_pool.G.mp_resamp['mr_minimum'])):
-                if (singleton_pool.G.mp_resamp['mr_minimum'][i][0] == maximal_element).all():
-                    singleton_pool.G.mp_resamp['mr_minimum'].pop(i)
-                    break
-            mid_element = new_buffer[int(len(new_buffer)/2.0-2)+np.random.randint(5)][0]
-            print('pick mid from buffer: ', mid_element)
-            singleton_pool.G.mp_resamp['mr_buffer'].append(mid_element)
-            for i in range(len(singleton_pool.G.mp_resamp['mr_minimum'])):
-                if (singleton_pool.G.mp_resamp['mr_minimum'][i][0] == mid_element).all():
-                    singleton_pool.G.mp_resamp['mr_minimum'].pop(i)
-                    break
-        else:
-            singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
-            singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
-            singleton_pool.G.mp_resamp['mr_buffer'].append(np.random.uniform(low=-0.05, high=1.05, size=2))
-        singleton_pool.run_each(_worker_update_mr, [('mr_buffer',
-                                                     singleton_pool.G.mp_resamp['mr_buffer'],
-                                                     scope)] * singleton_pool.n_parallel)'''
     if 'model_parameters' in result[0]['env_infos'] and logger._snapshot_dir is not None:
         mp_rew_raw = []
         for path in result:

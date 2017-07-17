@@ -20,17 +20,20 @@ if __name__ == '__main__':
     else:
         env = gym.make('DartWalker3dRestricted-v1')
 
-    #if hasattr(env.env, 'disableViewer'):
-    #    env.env.disableViewer = False
+    if hasattr(env.env, 'disableViewer'):
+        env.env.disableViewer = False
     if hasattr(env.env, 'resample_MP'):
         env.env.resample_MP = False
 
-    env.env.param_manager.set_simulator_parameters([0.59])
+    dyn_models = joblib.load('data/trained/dyn_models.pkl')
+    env.env.dyn_models = dyn_models
+    env.env.dyn_model_id = 0
 
     if hasattr(env.env, 'param_manager'):
-        env.env.param_manager.resample_parameters()
-        #env.env.param_manager.set_simulator_parameters([0.85])
+        #env.env.param_manager.resample_parameters()
+        #env.env.param_manager.set_simulator_parameters([0.09, 0.0])
         env.env.resample_MP = False
+        print('Model Parameters: ', env.env.param_manager.get_simulator_parameters())
 
 
     if len(sys.argv) > 2:
@@ -39,7 +42,6 @@ if __name__ == '__main__':
     o = env.reset()
 
     rew = 0
-
 
     for i in range(1000):
         a, ainfo = policy.get_action(o)
@@ -52,7 +54,7 @@ if __name__ == '__main__':
 
         rew += r
 
-        #env.render()
+        env.render()
         if d:
             print('reward: ', rew)
             break
