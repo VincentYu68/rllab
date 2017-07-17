@@ -96,6 +96,7 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
     dartenv = G.env._wrapped_env.env.env
     if G.env._wrapped_env.monitoring:
         dartenv = dartenv.env
+    dartenv.iter = G.mp_resamp['iter']
     if hasattr(dartenv, 'param_manager') and G.mp_resamp['use_adjusted_resample']:
         if dartenv.train_UP:
             dartenv.param_manager.resample_parameters()
@@ -155,6 +156,7 @@ def sample_paths(
     :param max_path_length: horizon / maximum length of a single trajectory
     :return: a list of collected paths
     """
+
 
     singleton_pool.run_each(
         _worker_set_policy_params,

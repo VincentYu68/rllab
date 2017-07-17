@@ -18,12 +18,14 @@ def run_task(*_):
     #policy_pre = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
     split_dim = 2
 
+
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
         #append_dim=2,
         net_mode=5,
+
         mp_dim=mp_dim,
         mp_sel_hid_dim=12,
         mp_sel_num=split_dim,
@@ -31,8 +33,7 @@ def run_task(*_):
         learn_segment = False,
         split_layer=[0],
         split_num=split_dim,
-        #split_units=joblib.load('data/trained/gradient_temp/split_scheme_4p.pkl'),
-        #split_init_net=policy_pre,
+
     )
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
     '''policy = CategoricalMLPPolicy(
@@ -69,6 +70,7 @@ def run_task(*_):
         batch_size=10000,
         max_path_length=env.horizon,
         n_itr=500,
+
 
         discount=0.995,
         step_size=0.01,
