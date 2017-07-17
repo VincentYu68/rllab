@@ -141,11 +141,11 @@ if __name__ == '__main__':
     )
 
 
-    policy = joblib.load('data/trained/policy_2d_restfoot_sd3_1500.pkl')
+    policy = joblib.load('data/trained/policy_2d_restfoot_sd33_1500.pkl')
 
     folder_name = 'restfoot_sd3_test'
-    segmentation_num = 3
-    load_path_from_file = True
+    segmentation_num = 2
+    load_path_from_file = False
     load_metric_from_file = True
     split_percentage = 0.2
 
@@ -166,6 +166,9 @@ if __name__ == '__main__':
     )
 
     algo.init_opt()
+
+    one_iter_grad = []
+    mps = []
     if not load_path_from_file:
         init_param = policy.get_param_values()
         init_param_obj = copy.deepcopy(policy.get_params())
@@ -178,24 +181,32 @@ if __name__ == '__main__':
         pol_weights = []
         all_paths = []
         policy_params = []
-        init_param = policy.get_param_values()
+        init_param = np.copy(policy.get_param_values())
         algo.start_worker()
         for i in range(100):
-
+            policy.set_param_values(init_param)
             #####   get data ###################
-            paths = algo.sampler.obtain_samples(i)
-            all_paths.append(paths)
+            for it in range(1):
+                paths = algo.sampler.obtain_samples(i)
+                algo.sampler.process_samples(0, paths)
+                samples_data = algo.sampler.process_samples(0, paths)
+                algo.optimize_policy(0, samples_data)
+                #all_paths.append(paths)
             print('iter ', iter)
-            for path in paths:
-                print(path['env_infos']['model_parameters'][-1], path['env_infos']['model_parameters'][0], len(path['env_infos']['model_parameters']))
+            mps.append(paths[0]['env_infos']['model_parameters'][-1])
+            one_iter_grad.append(policy.get_param_values() - init_param)
 
         algo.shutdown_worker()
 
-        joblib.dump(all_paths, 'data/trained/gradient_temp/'+folder_name+'/all_paths.pkl', compress=True)
-    else:
-        all_paths = joblib.load('data/trained/gradient_temp/' + folder_name + '/all_paths.pkl')
+        #joblib.dump(all_paths, 'data/trained/gradient_temp/'+folder_name+'/all_paths.pkl', compress=True)
 
-    if not load_metric_from_file:
+        joblib.dump([one_iter_grad, mps], 'data/trained/gradient_temp/' + folder_name + '/pointwise_grad.pkl',
+                    compress=True)
+    else:
+        #all_paths = joblib.load('data/trained/gradient_temp/' + folder_name + '/all_paths.pkl')
+        one_iter_grad, mps = joblib.load('data/trained/gradient_temp/' + folder_name + '/pointwise_grad.pkl')
+
+    '''if not load_metric_from_file:
         # compute policy gradient for each path
         one_iter_grad = []
         mps = []
@@ -210,26 +221,22 @@ if __name__ == '__main__':
             #algo.optimize_policy(0, samples_data)
             #samp_gradient = policy.get_param_values() - init_param
             samp_gradient = get_gradient(algo, samples_data, flat=True)
-            '''one_grad = []
-            for weights in samp_gradient:
-                f_weight = weights.flatten()
-                f_weight /= np.linalg.norm(f_weight)
-                one_grad += f_weight.tolist()
-                samp_gradient = np.array(one_grad)'''
 
             one_iter_grad.append(samp_gradient)
             mps.append(all_paths[iter][0]['env_infos']['model_parameters'][-1])
         mps = np.array(mps)
         joblib.dump([one_iter_grad, mps], 'data/trained/gradient_temp/' + folder_name + '/pointwise_grad.pkl', compress=True)
     else:
-        one_iter_grad, mps = joblib.load('data/trained/gradient_temp/' + folder_name + '/pointwise_grad.pkl')
+        one_iter_grad, mps = joblib.load('data/trained/gradient_temp/' + folder_name + '/pointwise_grad.pkl')'''
 
     for p in range(len(one_iter_grad)):
-        one_iter_grad[p] *= np.abs(policy.get_param_values())
+        one_iter_grad[p] /= np.linalg.norm(one_iter_grad[p])
 
     kmeans = KMeans(n_clusters=segmentation_num)
     kmeans.fit(one_iter_grad)
     pred_class = kmeans.predict(one_iter_grad)
+
+    mps = np.array(mps)
 
     plt.figure()
     plt.scatter(mps[:, 0], mps[:, 1], c=pred_class)

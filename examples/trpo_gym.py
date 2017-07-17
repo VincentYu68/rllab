@@ -12,18 +12,18 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartManipulator2d-v1"))#, record_log=False, record_video=False))
 
     mp_dim = 2
     policy_pre = joblib.load('data/trained/policy_2d_restfoot_sd3_1500.pkl')
-    split_dim = 4
+    split_dim = 0
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
         #append_dim=2,
-        net_mode=6,
+        net_mode=0,
         mp_dim=mp_dim,
         mp_sel_hid_dim=12,
         mp_sel_num=split_dim,
@@ -66,9 +66,9 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=150000,
+        batch_size=50000,
         max_path_length=env.horizon,
-        n_itr=500,
+        n_itr=1000,
 
         discount=0.995,
         step_size=0.01,
@@ -85,13 +85,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=7,
+    n_parallel=4,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=3,
-    exp_name='hopper_restfoot_sd3_gradsplit017_2000finish',
+    exp_name='manipulator2d_distdiff',
 
     # plot=True,
 )

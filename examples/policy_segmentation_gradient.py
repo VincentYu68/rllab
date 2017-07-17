@@ -142,9 +142,9 @@ if __name__ == '__main__':
     folder_name = '3d_rest1_sd1_8seg'
     segmentation_num = 8
     loc_weights = [0.0, 0.2, 0.5]
-    load_path_from_file = False
-    load_metric_from_file = False
-    split_percentage = 0.1
+    load_path_from_file = True
+    load_metric_from_file = True
+    split_percentage = 0.2
 
 
     # generate data
