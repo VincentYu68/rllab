@@ -161,7 +161,10 @@ class BaseSampler(Sampler):
             average_discounted_return = \
                 np.mean([path["returns"][0] for path in paths])
 
-            undiscounted_returns = [sum(path["rewards"]) for path in paths]
+            undiscounted_returns = []
+            for path in paths:
+                if path['env_infos']['dyn_model_id'][-1] == 0:
+                    undiscounted_returns.append(sum(path["rewards"]))
 
             ent = np.sum(self.algo.policy.distribution.entropy(agent_infos) * valids) / np.sum(valids)
 
