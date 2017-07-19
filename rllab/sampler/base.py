@@ -105,7 +105,14 @@ class BaseSampler(Sampler):
             average_discounted_return = \
                 np.mean([path["returns"][0] for path in paths])
 
-            undiscounted_returns = [sum(path["rewards"]) for path in paths]
+            undiscounted_returns = []
+            ct = 0
+            for path in paths:
+                if path['env_infos']['dyn_model_id'][-1] == 0:
+                    undiscounted_returns.append(sum(path["rewards"]))
+                if path['env_infos']['dyn_model_id'][-1] == 1:
+                    ct += 1
+            print('path count with fake dynamics: ', ct, len(undiscounted_returns), len(paths))
 
             ent = np.mean(self.algo.policy.distribution.entropy(agent_infos))
 
@@ -161,10 +168,7 @@ class BaseSampler(Sampler):
             average_discounted_return = \
                 np.mean([path["returns"][0] for path in paths])
 
-            undiscounted_returns = []
-            for path in paths:
-                if path['env_infos']['dyn_model_id'][-1] == 0:
-                    undiscounted_returns.append(sum(path["rewards"]))
+            undiscounted_returns = [sum(path["rewards"]) for path in paths]
 
             ent = np.sum(self.algo.policy.distribution.entropy(agent_infos) * valids) / np.sum(valids)
 

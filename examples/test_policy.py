@@ -11,6 +11,7 @@ import joblib
 import numpy as np
 
 import matplotlib.pyplot as plt
+from gym import wrappers
 
 np.random.seed(15)
 
@@ -20,18 +21,20 @@ if __name__ == '__main__':
     else:
         env = gym.make('DartWalker3dRestricted-v1')
 
+    env_wrapper = wrappers.Monitor(env, 'data/videos/', force=True, video_callable=False)
+
     if hasattr(env.env, 'disableViewer'):
         env.env.disableViewer = False
     if hasattr(env.env, 'resample_MP'):
         env.env.resample_MP = False
 
     dyn_models = joblib.load('data/trained/dyn_models.pkl')
-    env.env.dyn_models = dyn_models
-    env.env.dyn_model_id = 0
+    #env.env.dyn_models = dyn_models
+    #env.env.dyn_model_id = 0
 
     if hasattr(env.env, 'param_manager'):
         #env.env.param_manager.resample_parameters()
-        #env.env.param_manager.set_simulator_parameters([0.09, 0.0])
+        env.env.param_manager.set_simulator_parameters([0.2, 0.0])
         env.env.resample_MP = False
         print('Model Parameters: ', env.env.param_manager.get_simulator_parameters())
 
@@ -39,22 +42,22 @@ if __name__ == '__main__':
     if len(sys.argv) > 2:
         policy = joblib.load(sys.argv[2])
 
-    o = env.reset()
+    o = env_wrapper.reset()
 
     rew = 0
 
-    for i in range(1000):
+    for i in range(500):
         a, ainfo = policy.get_action(o)
         act = ainfo['mean']
         if hasattr(policy, '_lowlevelnetwork'):
             lowa = policy.lowlevel_action(o, act)
-            o, r, d, env_info = env.step(lowa)
+            o, r, d, env_info = env_wrapper.step(lowa)
         else:
-            o, r, d, env_info = env.step(act)
+            o, r, d, env_info = env_wrapper.step(act)
 
         rew += r
 
-        env.render()
+        env_wrapper.render()
         if d:
             print('reward: ', rew)
             break
