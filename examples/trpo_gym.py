@@ -12,7 +12,7 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartCartPoleSwingUp-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
 
     mp_dim = 0
     #policy_pre = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
@@ -41,7 +41,7 @@ def run_task(*_):
         hidden_sizes=(64, 64),
     )'''
 
-    #policy = joblib.load('data/trained/policy_2d_restfoot_sd6_perturb_001_1500.pkl')
+    #policy = joblib.load('data/local/experiment/hopper_sd15_msrl_noknn/policy.pkl')
     '''policy_prev = joblib.load('data/trained/policy_2d_footstrength_sd4_1000.pkl')
 
 
@@ -67,9 +67,9 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=10000,
+        batch_size=20000,
         max_path_length=env.horizon,
-        n_itr=500,
+        n_itr=200,
 
 
         discount=0.995,
@@ -92,8 +92,8 @@ run_experiment_lite(
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=5,
-    exp_name='cartpoleswingup',
+    seed=17,
+    exp_name='hopper_sd17_msrl_noknn',
 
     # plot=True,
 )
