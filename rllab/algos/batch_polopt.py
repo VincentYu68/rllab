@@ -30,6 +30,7 @@ class BatchSampler(BaseSampler):
             iter = itr,
             policy=self.algo.policy,
             env = self.algo.env,
+            baseline = self.algo.baseline,
         )
 
 

@@ -9,6 +9,7 @@ import traceback
 import sys
 from gym.envs.dart.dynamic_models import *
 from sklearn.neighbors import KNeighborsRegressor
+import joblib
 
 class ProgBarCounter(object):
     def __init__(self, total_count):
@@ -56,12 +57,14 @@ class SharedGlobal(object):
 
         self.ensemble_dynamics = {}
         self.ensemble_dynamics['use_ens_dyn'] = True
-        self.ensemble_dynamics['dyn_models'] = [LinearDynamicModel()]
+        #self.ensemble_dynamics['dyn_models'] = [joblib.load('data/trained/dyn_models.pkl')[0]]
+        self.ensemble_dynamics['dyn_models'] = [MLPDynamicModel]
         self.ensemble_dynamics['transition_locator'] = KNeighborsRegressor(n_neighbors=1, weights='distance')
         self.ensemble_dynamics['dyn_model_choice'] = 0
         self.ensemble_dynamics['training_buffer_x'] = []
         self.ensemble_dynamics['training_buffer_y'] = []
         self.ensemble_dynamics['base_paths'] = []
+        self.ensemble_dynamics['baseline'] = None
 
 class StatefulPool(object):
     def __init__(self):
