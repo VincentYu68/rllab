@@ -31,7 +31,7 @@ class LinearFeatureBaseline(Baseline):
                     stack_o[oid,obs_len*splitid:obs_len*(splitid+1)] *= split_vec[oid, splitid]
             o = stack_o
         else:
-            o = np.concatenate([o, o ** 2, al, al ** 2, al ** 3, np.ones((l, 1))], axis=1)
+            o = np.concatenate([o, o ** 2, np.sin(o), np.cos(o), al, al ** 2, al ** 3, np.ones((l, 1))], axis=1)
         return o
 
     @overrides
