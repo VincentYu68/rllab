@@ -13,7 +13,19 @@ if __name__ == '__main__':
         raise ValueError
 
     mp_dim = selector.models[0]._fit_X.shape[1]
-    if mp_dim == 2:
+    if mp_dim == 1:
+        coordx = []
+        pred_data = []
+        for i in np.arange(0, 1, 0.02):
+            reps = []
+            for rep in range(1):
+                reps.append(selector.classify(np.array([[i]]), stoch=False))
+            pred = np.mean(reps)
+            coordx.append(i)
+            pred_data.append(pred)
+        plt.scatter(coordx, pred_data)
+        plt.show()
+    elif mp_dim == 2:
         coordx = []
         coordy = []
         pred_data = []
@@ -31,4 +43,4 @@ if __name__ == '__main__':
         plt.colorbar()
         plt.show()
     else:
-        print('visualization only support 2d model parameters!')
+        print('visualization only support 1d and 2d model parameters!')

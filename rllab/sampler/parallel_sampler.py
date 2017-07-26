@@ -248,11 +248,11 @@ def sample_paths(
                 dyn_training_y.append(next_state)
         singleton_pool.G.ensemble_dynamics['training_buffer_x'] += dyn_training_x
         singleton_pool.G.ensemble_dynamics['training_buffer_y'] += dyn_training_y
-        if len(singleton_pool.G.ensemble_dynamics['training_buffer_x']) > 20000:
-            singleton_pool.G.ensemble_dynamics['training_buffer_x'] = singleton_pool.G.ensemble_dynamics['training_buffer_x'][-20000:]
-            singleton_pool.G.ensemble_dynamics['training_buffer_y'] = singleton_pool.G.ensemble_dynamics['training_buffer_y'][-20000:]
+        if len(singleton_pool.G.ensemble_dynamics['training_buffer_x']) > 10000:
+            singleton_pool.G.ensemble_dynamics['training_buffer_x'] = singleton_pool.G.ensemble_dynamics['training_buffer_x'][-10000:]
+            singleton_pool.G.ensemble_dynamics['training_buffer_y'] = singleton_pool.G.ensemble_dynamics['training_buffer_y'][-10000:]
         if iter %1 ==0:
-            optimize_iter = 30
+            optimize_iter = 100
             if iter != 0:
                 optimize_iter = 5
             singleton_pool.G.ensemble_dynamics['dyn_models'][0].fit(singleton_pool.G.ensemble_dynamics['training_buffer_x'], singleton_pool.G.ensemble_dynamics['training_buffer_y'], iter = optimize_iter)
