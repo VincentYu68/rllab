@@ -98,11 +98,11 @@ def synthesize_data(dim, size, tasks, split = False, seed = None):
                 if subtask[0] == 0:
                     output[idx] = input[subtask[1]]
                 elif subtask[0] == 1:
-                    output[idx] = input(subtask[1]) + input(subtask[2])
+                    output[idx] = input[subtask[1]] + input[subtask[2]]
                 elif subtask[0] == 2:
-                    output[idx] = input(subtask[1]) - input(subtask[2])
+                    output[idx] = input[subtask[1]] - input[subtask[2]]
                 elif subtask[0] == 3:
-                    output[idx] = input(subtask[1]) * input(subtask[2])
+                    output[idx] = input[subtask[1]] * input[subtask[2]]
             X.append(input)
             Y.append(output)
         Xs.append(X)
@@ -117,11 +117,11 @@ if __name__ == '__main__':
     dim = 5
     in_dim = dim+1
     out_dim = dim
-    difficulties = [0]
+    difficulties = [3]
     random_split = False
     prioritized_split = False
     append = str(difficulties)
-    reps = 10
+    reps = 5
     if random_split:
         append += '_rand'
         if prioritized_split:
