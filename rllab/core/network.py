@@ -2091,7 +2091,6 @@ class MLP_SplitAct(LasagnePowered, Serializable):
                 recover_order = []
                 for idx in range(len(new_order)):
                     recover_order.append(new_order.index(idx))
-                print(recover_order)
                 l_out = SplitLayer(L.concat([l_out_share, l_out_split_sum]), recover_order)
             else:
                 l_out = l_out_split_sum
