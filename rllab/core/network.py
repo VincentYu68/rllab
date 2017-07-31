@@ -1966,7 +1966,6 @@ class MLP_SplitAct(LasagnePowered, Serializable):
                  output_nonlinearity, split_units, split_num, init_net, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
                  output_W_init=LI.GlorotUniform(), output_b_init=LI.Constant(0.),
                  name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False):
-
         Serializable.quick_init(self, locals())
 
         if name is None:
@@ -2037,7 +2036,7 @@ class MLP_SplitAct(LasagnePowered, Serializable):
                     l_hid,
                     num_units=hidden_size,
                     nonlinearity=hidden_nonlinearity,
-                    name="%shidden_%d" % (prefix, idx),
+                    name="%shidden_share_%d" % (prefix, idx),
                     W=hidden_W_init,
                     b=hidden_b_init,
                 )
@@ -2099,7 +2098,7 @@ class MLP_SplitAct(LasagnePowered, Serializable):
                 l_hid,
                 num_units=output_dim,
                 nonlinearity=output_nonlinearity,
-                name="%soutput" % (prefix),
+                name="%soutput_share" % (prefix),
                 W=output_W_init,
                 b=output_b_init,
             )

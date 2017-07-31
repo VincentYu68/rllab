@@ -12,7 +12,7 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartHopperBackpack-v1", record_log=False, record_video=False))
 
     mp_dim = 0
     #policy_pre = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
@@ -22,18 +22,17 @@ def run_task(*_):
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(100, 50, 25),
+        hidden_sizes=(64, 32),
         #append_dim=2,
-        net_mode=5,
+        net_mode=0,
 
         mp_dim=mp_dim,
         mp_sel_hid_dim=12,
         mp_sel_num=split_dim,
         #wc_net_path='data/trained/2d_weightconverter.pkl',
         learn_segment = False,
-        split_layer=[0],
+        split_layer=[2],
         split_num=split_dim,
-
     )
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
     '''policy = CategoricalMLPPolicy(
@@ -41,7 +40,7 @@ def run_task(*_):
         hidden_sizes=(64, 64),
     )'''
 
-    #policy = joblib.load('data/local/experiment/hopper_sd15_msrl_noknn/policy.pkl')
+    policy = joblib.load('data/trained/policy_mass60_sd3_gradsplit_1500.pkl')
     '''policy_prev = joblib.load('data/trained/policy_2d_footstrength_sd4_1000.pkl')
 
 
@@ -58,7 +57,7 @@ def run_task(*_):
             policy.get_params(trainable=True)[paramid].set_value(params[paramid].get_value(borrow=True))
     '''
 
-    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=split_dim)
+    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=split_dim*0)
     
     #policy = params['policy']
     #baseline = params['baseline']
@@ -67,10 +66,9 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=20000,
+        batch_size=50000,
         max_path_length=env.horizon,
-        n_itr=200,
-
+        n_itr=100,
 
         discount=0.995,
         step_size=0.01,
@@ -92,8 +90,8 @@ run_experiment_lite(
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=17,
-    exp_name='hopper_sd17_msrl_noknn',
+    seed=11,
+    exp_name='hopper_backpack_sd11',
 
     # plot=True,
 )
