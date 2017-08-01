@@ -30,6 +30,7 @@ import os
 def train(train_fn, X, Y, iter, batch = 32, shuffle=True):
     X=np.array(X)
     Y=np.array(Y)
+    losses = []
     for epoch in range(iter):
         # In each epoch, we do a full pass over the training data:
         train_err = 0
@@ -43,7 +44,9 @@ def train(train_fn, X, Y, iter, batch = 32, shuffle=True):
             output = np.array(Y[excerpt])
             train_err += train_fn(input, output)
             train_batches += 1
+        losses.append(train_err / train_batches)
         #print("aux training loss:\t\t{:.6f}".format(train_err / train_batches))
+    return losses
 
 # default task is to reverse the order
 # difficulty [0, dim-1] is the number of operations being mutated
@@ -121,8 +124,8 @@ if __name__ == '__main__':
     dim = 6
     in_dim = dim+1
     out_dim = dim
-    difficulties = [2,3]
-    random_split = False
+    difficulties = [1,1]
+    random_split = True
     prioritized_split = False
     append = str(difficulties)
     reps = 5
@@ -133,8 +136,13 @@ if __name__ == '__main__':
     epochs = 40
     hidden_size = (32,16)
 
+    #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
+    split_percentages = [0.0, 0.01, 0.05, 0.1, 0.3, 0.6]
     test_num = 1
     performances = []
+    learning_curves = []
+    for i in range(len(split_percentages)):
+        learning_curves.append([])
 
     if not os.path.exists('data/trained/gradient_temp/supervised_split_' + append):
         os.makedirs('data/trained/gradient_temp/supervised_split_' + append)
@@ -143,7 +151,7 @@ if __name__ == '__main__':
 
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
-        np.random.seed(testit*3)
+        np.random.seed(testit*3+1)
 
         tasks = sample_tasks(dim, difficulties)
         print(tasks)
@@ -168,7 +176,6 @@ if __name__ == '__main__':
         grad_fn = T.function([network.input_layer.input_var, out_var], grad, allow_input_downcast=True)
         loss_fn = T.function([network.input_layer.input_var, out_var], loss, allow_input_downcast=True)
         out = T.function([network.input_layer.input_var], prediction, allow_input_downcast=True)
-
 
         Xs, Ys = synthesize_data(dim, 2000, tasks)
         train(train_fn, np.concatenate(Xs), np.concatenate(Ys), 50)
@@ -218,7 +225,7 @@ if __name__ == '__main__':
                     region_gradients.append(task_grads[region][i][k])
                 region_gradients = np.array(region_gradients)
                 if not random_split:
-                    split_counts[k] += np.var(region_gradients, axis=0) * np.abs(net_weights[i][k])# + 100 * (len(task_grads[0][i])-k)
+                    split_counts[k] += np.var(region_gradients, axis=0)# * np.abs(net_weights[i][k]) # + 100 * (len(task_grads[0][i])-k)
                 elif prioritized_split:
                     split_counts[k] += np.random.random(split_counts[k].shape) * (len(task_grads[0][i])-k)
                 else:
@@ -236,8 +243,6 @@ if __name__ == '__main__':
             plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/' + network.get_params()[j].name + '.png')
 
         # test the effect of splitting
-        #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-        split_percentages = [0.0, 0.01, 0.05, 0.1, 0.3]
         total_param_size = len(network.get_param_values())
 
         split_indices = []
@@ -268,7 +273,7 @@ if __name__ == '__main__':
         if individual_test:
             split_percentages = np.arange(len(metrics_lsit))
             split_layer_units = [[0, -1]]
-        for split_percentage in split_percentages:
+        for split_id, split_percentage in enumerate(split_percentages):
             if not individual_test:
                 split_param_size = split_percentage * total_param_size
                 current_split_size = 0
@@ -324,19 +329,26 @@ if __name__ == '__main__':
             if split_param_size != 0:
                 print(split_percentage, sanity, out([np.concatenate([np.arange(dim), [0, 1], [0]*len(difficulties)])]))
             avg_error = 0.0
+            avg_learning_curve = []
 
             for rep in range(int(reps)):
                 split_network.set_param_values(split_init_param)
 
                 Xs, Ys = synthesize_data(dim, 2000, tasks, split_param_size != 0)
-                train(train_fn_split, np.concatenate(Xs), np.concatenate(Ys), 400, batch = 32, shuffle=True)
+                losses = train(train_fn_split, np.concatenate(Xs), np.concatenate(Ys), 400, batch = 32, shuffle=True)
 
                 testXs, testYs = synthesize_data(dim, 10000, tasks, split_param_size != 0)
 
                 avg_error += test(out, np.concatenate(Xs), np.concatenate(Ys))
+                avg_learning_curve.append(losses)
+
             pred_list.append(avg_error / reps)
             print(split_percentage, avg_error / reps)
+            avg_learning_curve = np.mean(avg_learning_curve, axis=0)
+            if not individual_test:
+                learning_curves[split_id].append(avg_learning_curve)
         performances.append(pred_list)
+
 
     if individual_test:
         plt.figure()
@@ -348,6 +360,19 @@ if __name__ == '__main__':
     plt.figure()
     plt.plot(split_percentages, np.mean(performances, axis=0))
     plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/split_performance.png')
+
+    if not individual_test:
+        avg_learning_curve = []
+        for i in range(len(learning_curves)):
+            avg_learning_curve.append(np.mean(learning_curves[i], axis=0))
+        plt.figure()
+        for i in range(len(split_percentages)):
+            plt.plot(avg_learning_curve[i], label=str(split_percentages[i]))
+        plt.legend(bbox_to_anchor=(0.3, 0.3),
+        bbox_transform=plt.gcf().transFigure, numpoints=1)
+        plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/split_learning_curves.png')
+
+    plt.close('all')
 
 
 
