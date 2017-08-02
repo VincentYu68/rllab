@@ -2126,3 +2126,108 @@ class MLP_SplitAct(LasagnePowered, Serializable):
     @property
     def output(self):
         return self._output
+
+class MLP_SoftSplit(LasagnePowered, Serializable):
+    def __init__(self, output_dim, hidden_sizes, hidden_nonlinearity,
+                 output_nonlinearity, split_num, init_net, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
+                 output_W_init=LI.GlorotUniform(), output_b_init=LI.Constant(0.),
+                 name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False):
+        Serializable.quick_init(self, locals())
+
+        if name is None:
+            prefix = ""
+        else:
+            prefix = name + "_"
+
+        if input_layer is None:
+            l_in = L.InputLayer(shape=(None,) + input_shape, input_var=input_var)
+        else:
+            l_in = input_layer
+        self._layers = [l_in]
+        layer_id = 0
+
+        l_input = SplitLayer(l_in, np.arange(0, input_shape[0] - split_num))
+        l_split = SplitLayer(l_in, np.arange(input_shape[0] -split_num, input_shape[0]))
+        self._layers.append(l_input)
+        self._layers.append(l_split)
+
+        l_hid = l_input
+        for idx, hidden_size in enumerate(hidden_sizes):
+            initial_weights_W = init_net.layers[layer_id+1].get_params()[0].get_value()
+            initial_weights_b = init_net.layers[layer_id + 1].get_params()[1].get_value()
+
+            split_layers = []
+            for i in range(split_num):
+                l_hid_sub = L.DenseLayer(
+                    l_hid,
+                    num_units=(hidden_size),
+                    nonlinearity=hidden_nonlinearity,
+                    name="%shidden_split_%d_copy%d" % (prefix, idx, i),
+                    W=hidden_W_init,
+                    b=hidden_b_init,
+                )
+                l_hid_sub.get_params()[0].set_value(initial_weights_W)
+                l_hid_sub.get_params()[1].set_value(initial_weights_b)
+
+                split_single_expand = L.concat([SplitLayer(l_split, [i])] * (hidden_size))
+                l_hid_sub_mult = ElemwiseMultLayer([l_hid_sub, split_single_expand])
+                self._layers.append(l_hid_sub)
+                split_layers.append(l_hid_sub_mult)
+            l_hid_split_sum = L.ElemwiseSumLayer(split_layers)
+            l_hid = l_hid_split_sum
+
+            self._layers.append(l_hid)
+            layer_id += 1
+
+        initial_weights_W = init_net.layers[layer_id + 1].get_params()[0].get_value()
+        initial_weights_b = init_net.layers[layer_id + 1].get_params()[1].get_value()
+
+
+        split_outputs = []
+        for i in range(split_num):
+            l_out_sub = L.DenseLayer(
+                l_hid,
+                num_units=(output_dim),
+                nonlinearity=output_nonlinearity,
+                name="%soutput_split_copy%d" % (prefix, i),
+                W=output_W_init,
+                b=output_b_init,
+            )
+            l_out_sub.get_params()[0].set_value(initial_weights_W)
+            l_out_sub.get_params()[1].set_value(initial_weights_b)
+            split_single_expand = L.concat([SplitLayer(l_split, [i])] * (output_dim))
+            l_output_mult = ElemwiseMultLayer([l_out_sub, split_single_expand])
+            self._layers.append(l_out_sub)
+            split_outputs.append(l_output_mult)
+        l_out_split_sum = L.ElemwiseSumLayer(split_outputs)
+        l_out = l_out_split_sum
+
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
+
+    def get_split_parameter(self, split_id):
+        params = self.get_params()
+        return_params = []
+        for param in params:
+            if 'copy%d'%(split_id) in param.name:
+                return_params.append(param)
+        return return_params
