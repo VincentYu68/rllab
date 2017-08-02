@@ -21,6 +21,10 @@ if __name__ == '__main__':
         y.append(d[1])
 
     x=np.array(x)
-    plt.scatter(x[:,0], x[:,1],c=y, alpha=0.4)
-    plt.colorbar()
-    plt.show()
+    if x.shape[1] == 2:
+        plt.scatter(x[:,0], x[:,1],c=y, alpha=0.4)
+        plt.colorbar()
+        plt.show()
+    elif x.shape[1] == 1:
+        plt.scatter(x, y, alpha=0.4)
+        plt.show()

@@ -142,17 +142,6 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     split_units=split_units,
                     init_net=split_init_net._mean_network,
                 )
-            elif net_mode == 6:
-                mean_network = MLP_SplitAct(
-                    input_shape=(obs_dim,),
-                    output_dim=action_dim,
-                    hidden_sizes=hidden_sizes,
-                    hidden_nonlinearity=hidden_nonlinearity,
-                    output_nonlinearity=output_nonlinearity,
-                    split_num=split_num,
-                    split_units =split_units,
-                    init_net=split_init_net._mean_network,
-                )
             else:
                 mean_network = MLP(
                     input_shape=(obs_dim,),

@@ -7,6 +7,7 @@ import pickle
 import joblib
 import numpy as np
 import copy
+import time
 
 
 def _worker_init(G, id):
@@ -120,7 +121,8 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
         dartenv.dyn_model_id = G.ensemble_dynamics['dyn_model_choice']
         if len(G.ensemble_dynamics['base_paths']) > 0:
             dartenv.base_path = G.ensemble_dynamics['base_paths'][np.random.randint(0, len(G.ensemble_dynamics['base_paths']))]
-            dartenv.transition_locator = G.ensemble_dynamics['transition_locator']
+            #dartenv.transition_locator = G.ensemble_dynamics['transition_locator']
+            dartenv.baseline = G.ensemble_dynamics['baseline']
 
     if hasattr(dartenv, 'param_manager') and len(G.mp_resamp['mr_buffer']) > 0 and not dartenv.resample_MP:
         if np.random.random() < 1.0 / len(G.mp_resamp['mr_buffer']):
@@ -148,7 +150,11 @@ def sample_paths(
         max_path_length=np.inf,
         env_params=None,
         scope=None,
-        iter = 0):
+        iter = 0,
+        env = None,
+        policy = None,
+        baseline = None,
+        sim_percentage = 1.0/3.0):
     """
     :param policy_params: parameters for the policy. This will be updated on each worker process
     :param max_samples: desired maximum number of samples to be collected. The actual number of collected samples
@@ -175,7 +181,7 @@ def sample_paths(
                                                              0, scope)] * singleton_pool.n_parallel)
         result1 = singleton_pool.run_collect(
             _worker_collect_one_path,
-            threshold=max_samples * (1.0/2.0),
+            threshold=max_samples * (sim_percentage),
             args=(max_path_length, scope),
             show_prog_bar=True
         )
@@ -184,15 +190,18 @@ def sample_paths(
                                                              1, scope)] * singleton_pool.n_parallel)
         singleton_pool.run_each(_worker_update_dyn, [('base_paths',
                                                              result1, scope)] * singleton_pool.n_parallel)
+        singleton_pool.run_each(_worker_update_dyn, [('baseline',
+                                                             baseline, scope)] * singleton_pool.n_parallel)
 
         result2 = singleton_pool.run_collect(
             _worker_collect_one_path,
-            threshold=max_samples * (1.0/2.0),
+            threshold=max_samples * (1-sim_percentage),
             args=(max_path_length, scope),
             show_prog_bar=True
         )
 
         result = result1 + result2
+        #result = result1
     else:
         result = singleton_pool.run_collect(
             _worker_collect_one_path,
@@ -201,42 +210,14 @@ def sample_paths(
             show_prog_bar=True
         )
 
-
     logger.log('Collected Traj Num: '+str(len(result)))
-
-    if singleton_pool.G.ensemble_dynamics['use_ens_dyn']:
-        dyn_training_x = []
-        dyn_training_y = []
-        dyn_training_result = result
-        if iter > 0:
-            dyn_training_result = result1
-        for path in dyn_training_result:
-            for state_act in path['env_infos']['state_act']:
-                dyn_training_x.append(state_act)
-            for next_state in path['env_infos']['next_state']:
-                dyn_training_y.append(next_state)
-        singleton_pool.G.ensemble_dynamics['training_buffer_x'] += dyn_training_x
-        singleton_pool.G.ensemble_dynamics['training_buffer_y'] += dyn_training_y
-        if len(singleton_pool.G.ensemble_dynamics['training_buffer_x']) > 100000:
-            singleton_pool.G.ensemble_dynamics['training_buffer_x'] = singleton_pool.G.ensemble_dynamics['training_buffer_x'][-100000:]
-            singleton_pool.G.ensemble_dynamics['training_buffer_y'] = singleton_pool.G.ensemble_dynamics['training_buffer_y'][-100000:]
-        singleton_pool.G.ensemble_dynamics['dyn_models'][0].fit(dyn_training_x, dyn_training_y)
-        singleton_pool.G.ensemble_dynamics['transition_locator'].fit(singleton_pool.G.ensemble_dynamics['training_buffer_x'], singleton_pool.G.ensemble_dynamics['training_buffer_y'])
-        print('fitted dynamic models and transition locator')
-        singleton_pool.run_each(_worker_update_dyn, [('dyn_models',
-                                                             singleton_pool.G.ensemble_dynamics['dyn_models'], scope)] * singleton_pool.n_parallel)
-        singleton_pool.run_each(_worker_update_dyn, [('transition_locator',
-                                                             singleton_pool.G.ensemble_dynamics['transition_locator'], scope)] * singleton_pool.n_parallel)
-        joblib.dump(singleton_pool.G.ensemble_dynamics['dyn_models'], 'data/trained/dyn_models.pkl', compress=True)
-
-
-
 
     if 'model_parameters' in result[0]['env_infos'] and logger._snapshot_dir is not None:
         mp_rew_raw = []
         for path in result:
             mp_rew_raw.append([np.array(path['env_infos']['model_parameters'][-1]), path['rewards'].sum()])
         mp_rew_raw.sort(key=lambda x: str(x[0]))
+        print(mp_rew_raw)
         mp_rew = []
         i = 0
         while True:
@@ -255,6 +236,85 @@ def sample_paths(
         mp_rew.sort(key=lambda x: x[1])
         filename = logger._snapshot_dir + '/mp_rew_' + str(iter) + '.pkl'
         pickle.dump(mp_rew, open(filename, 'wb'))
+
+    if singleton_pool.G.ensemble_dynamics['use_ens_dyn']:
+        dyn_training_x = []
+        dyn_training_y = []
+        dyn_training_result = result
+        if iter > 0:
+            dyn_training_result = result1
+        for path in dyn_training_result:
+            for state_act in path['env_infos']['state_act']:
+                dyn_training_x.append(state_act)
+            for next_state in path['env_infos']['next_state']:
+                dyn_training_y.append(next_state)
+        singleton_pool.G.ensemble_dynamics['training_buffer_x'] += dyn_training_x
+        singleton_pool.G.ensemble_dynamics['training_buffer_y'] += dyn_training_y
+        if len(singleton_pool.G.ensemble_dynamics['training_buffer_x']) > 10000:
+            singleton_pool.G.ensemble_dynamics['training_buffer_x'] = singleton_pool.G.ensemble_dynamics['training_buffer_x'][-10000:]
+            singleton_pool.G.ensemble_dynamics['training_buffer_y'] = singleton_pool.G.ensemble_dynamics['training_buffer_y'][-10000:]
+        if iter %1 ==0:
+            optimize_iter = 100
+            if iter != 0:
+                optimize_iter = 5
+            singleton_pool.G.ensemble_dynamics['dyn_models'][0].fit(singleton_pool.G.ensemble_dynamics['training_buffer_x'], singleton_pool.G.ensemble_dynamics['training_buffer_y'], iter = optimize_iter)
+            #singleton_pool.G.ensemble_dynamics['transition_locator'].fit(singleton_pool.G.ensemble_dynamics['training_buffer_x'], singleton_pool.G.ensemble_dynamics['training_buffer_y'])
+            print('fitted dynamic models and transition locator')
+            singleton_pool.run_each(_worker_update_dyn, [('dyn_models',
+                                                                 singleton_pool.G.ensemble_dynamics['dyn_models'], scope)] * singleton_pool.n_parallel)
+            #singleton_pool.run_each(_worker_update_dyn, [('transition_locator',
+            #                                                     singleton_pool.G.ensemble_dynamics['transition_locator'], scope)] * singleton_pool.n_parallel)
+            if logger._snapshot_dir is not None:
+                joblib.dump(singleton_pool.G.ensemble_dynamics['dyn_models'], logger._snapshot_dir+'/dyn_models.pkl', compress=True)
+
+    # augment the data with synthetic data
+        '''if iter > 0:
+            logger.log('Synthetizing data...')
+            bg = time.time()
+            dartenv = env._wrapped_env.env.env
+            dartenv.dyn_model_id = 1
+            dartenv.reset()
+            if env._wrapped_env.monitoring:
+                dartenv = dartenv.env
+            data_size = int(max_samples * (1-sim_percentage))
+            random_state = []
+            for i in range(data_size):
+                path = result[np.random.randint(len(result))]
+                state_act = path['env_infos']['state_act'][np.random.randint(len(path['env_infos']['state_act']))]
+                state = state_act[0:singleton_pool.G.ensemble_dynamics['dyn_models'][0].state_dim]
+                random_state.append(state + np.random.uniform(low=0.01, high = 0.01, size=len(state)))
+            obs = []
+            for i in range(data_size):
+                dartenv.set_state_vector(random_state[i])
+                obs.append(dartenv._get_obs())
+            raw_actions = policy.get_actions(obs)
+            actions = raw_actions[0]
+
+            next_state = []
+            for i in range(data_size):
+                next_state.append(singleton_pool.G.ensemble_dynamics['dyn_models'][0].do_simulation(random_state[i], actions[i], 4))
+            rewards = []
+            for i in range(data_size):
+                rewards.append(dartenv.get_reward(random_state[i], actions[i], next_state[i], 0.2))
+            for i in range(data_size):
+                newpath = {}
+                newpath['rewards'] = np.array([rewards[i]])
+                newpath['env_infos'] = {}
+                newpath['env_infos']['dyn_model_id'] = np.array([1])
+                env_info_keys = list(result[0]['env_infos'].keys())
+                for key in env_info_keys:
+                    if key not in newpath['env_infos']:
+                        newpath['env_infos'][key] = np.copy(result[0]['env_infos'][key][[-1]])
+                newpath['observations'] = np.array([obs[i]])
+                newpath['actions'] = np.array([actions[i]])
+                newpath['agent_infos'] = {}
+                newpath['agent_infos']['log_std'] = raw_actions[1]['log_std'][[i]]
+                newpath['agent_infos']['mean'] = raw_actions[1]['mean'][[i]]
+
+                result.append(newpath)
+            dartenv.dyn_model_id = 0
+            ed = time.time()
+            logger.log('Synthesize done, created: '+str(ed-bg))'''
 
     return result
 
