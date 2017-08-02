@@ -56,6 +56,7 @@ def get_UPSelector_training_data(total_paths):
     data = []
     for paths in total_paths:
         data += get_mp_rew_pairs(paths)
+    print(len(data))
     total_training_data = []
     total_training_target = []
     for d in data:
@@ -69,7 +70,6 @@ def estimate_splitability(algo, policy, total_paths, init_params, pol_weights, s
     selector = UPSelector()
     selector.num_class=segment_num
     selector.loc_weight = loc_weight
-
     selector.train(training_x, training_y)
 
     path_count = [0] * segment_num
@@ -77,7 +77,8 @@ def estimate_splitability(algo, policy, total_paths, init_params, pol_weights, s
         for path in total_paths[i]:
             path_count[selector.classify([path['env_infos']['model_parameters'][-1]])] += 1.0
     path_perc = np.array(path_count) / np.sum(path_count)
-    if (path_perc < 0.5/segment_num).any():
+    print('data percentages: ', path_perc)
+    if (path_perc < 0.6/segment_num).any():
         return 0, None, None
 
     total_grads = []
@@ -96,11 +97,12 @@ def estimate_splitability(algo, policy, total_paths, init_params, pol_weights, s
             samples_data = algo.sampler.process_samples(0, path_collections[pid])
             samples_data = algo.sampler.process_samples(0, path_collections[pid])
             policy.set_param_values(init_params[i])
-            algo.optimize_policy(0, samples_data)
+            '''algo.optimize_policy(0, samples_data)
 
             tempgrad = []
             for j in range(len(policy.get_params())):
-                tempgrad.append(policy.get_params()[j].get_value() - pol_weights[i*len(policy.get_params())+j])
+                tempgrad.append(policy.get_params()[j].get_value() - pol_weights[i*len(policy.get_params())+j])'''
+            tempgrad = get_gradient(algo, samples_data)
             total_grads[pid].append(tempgrad)
 
     split_counts = []
@@ -113,7 +115,7 @@ def estimate_splitability(algo, policy, total_paths, init_params, pol_weights, s
             for j in range(len(total_grads)):
                 region_gradients.append(total_grads[j][i][k])
             region_gradients = np.array(region_gradients)
-            split_counts[k] += np.var(region_gradients, axis=0) * np.abs(pol_weights[i * len(total_grads[0][i]) + k])
+            split_counts[k] += np.var(region_gradients, axis=0)# * np.abs(pol_weights[i * len(total_grads[0][i]) + k])# + 100 * (len(total_grads[0][i])-k)
 
     split_metrics = []
     for p in range(int(len(split_counts) / 2)):
@@ -125,7 +127,7 @@ def estimate_splitability(algo, policy, total_paths, init_params, pol_weights, s
 
 
 if __name__ == '__main__':
-    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartHopperBackpack-v1", record_log=False, record_video=False))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
@@ -137,14 +139,14 @@ if __name__ == '__main__':
 
 
     policy = joblib.load(
-        'data/trained/policy_3d_rest1_sd1_400.pkl')
+        'data/local/experiment/hopper_backpack_slope_sd7_1500/policy_1200.pkl')
 
-    folder_name = '3d_rest1_sd1_8seg'
-    segmentation_num = 8
-    loc_weights = [0.0, 0.2, 0.5]
-    load_path_from_file = True
-    load_metric_from_file = True
-    split_percentage = 0.2
+    folder_name = 'backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start'
+    segmentation_num = 3
+    loc_weights = [0.0, 0.2, 0.4]
+    load_path_from_file = False
+    load_metric_from_file = False
+    split_percentage = 0.5
 
 
     # generate data
@@ -154,7 +156,7 @@ if __name__ == '__main__':
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=300000,
+        batch_size=75000,
         max_path_length=env.horizon,
         n_itr=5,
 
@@ -199,7 +201,7 @@ if __name__ == '__main__':
                 pol_weights.append(init_param_obj[j].get_value())
 
         algo.shutdown_worker()
-
+        joblib.dump(policy, 'data/trained/gradient_temp/' + folder_name+'/policy_cont.pkl', compress=True)
         joblib.dump(all_paths, 'data/trained/gradient_temp/'+folder_name+'/all_paths.pkl', compress=True)
         joblib.dump([policy_params, pol_weights], 'data/trained/gradient_temp/'+folder_name+'/policy_params.pkl', compress=True)
     else:
@@ -255,7 +257,7 @@ if __name__ == '__main__':
             break
 
     split_layer_units.sort(key=lambda x: (x[0], x[1]))
-
+    print('split units: ', split_layer_units)
     joblib.dump(split_layer_units, 'data/trained/gradient_temp/'+folder_name+'/split_scheme_'+folder_name+'_orth_'+str(split_percentage)+'.pkl', compress=True)
 
     for j in range(len(best_split_counts)):

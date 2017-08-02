@@ -55,7 +55,7 @@ class SharedGlobal(object):
         self.mp_resamp['mr_minimum'] = []
 
         self.ensemble_dynamics = {}
-        self.ensemble_dynamics['use_ens_dyn'] = True
+        self.ensemble_dynamics['use_ens_dyn'] = False
         self.ensemble_dynamics['dyn_models'] = [LinearDynamicModel()]
         self.ensemble_dynamics['transition_locator'] = KNeighborsRegressor(n_neighbors=1, weights='distance')
         self.ensemble_dynamics['dyn_model_choice'] = 0

@@ -21,15 +21,17 @@ class LinearFeatureBaseline(Baseline):
         o = np.clip(path["observations"], -10, 10)
         l = len(path["rewards"])
         al = np.arange(l).reshape(-1, 1) / 100.0
-        if len(o.shape) == 2 and self.additional_dim > 0:
+        if 1==2 and len(o.shape) == 2 and self.additional_dim > 0:
             single_o = o[:, 0:o.shape[1] -self.additional_dim]
             split_vec = o[:, o.shape[1] -self.additional_dim:]
             stack_o = np.hstack([single_o, single_o**2, al, al ** 2, al ** 3, np.ones((l, 1))]*self.additional_dim)
+            obs_len = len(np.concatenate([single_o, single_o**2, al, al ** 2, al ** 3, np.ones((l, 1))], axis=1)[0])
             for oid in range(len(stack_o)):
                 for splitid in range(self.additional_dim):
-                    stack_o[oid,single_o.shape[1]*3*splitid:single_o.shape[1]*3*(splitid+1)] *= split_vec[oid, splitid]
+                    stack_o[oid,obs_len*splitid:obs_len*(splitid+1)] *= split_vec[oid, splitid]
             o = stack_o
-
+        else:
+            o = np.concatenate([o, o ** 2, np.sin(o), np.cos(o), al, al ** 2, al ** 3, np.ones((l, 1))], axis=1)
         return o
 
     @overrides

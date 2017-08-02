@@ -1,6 +1,7 @@
 from rllab.algos.trpo import TRPO
 from rllab.algos.trpo_mpsel import TRPOMPSel
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from rllab.envs.gym_env import GymEnv
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import run_experiment_lite
@@ -12,19 +13,18 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartCartPoleSwingUp-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartHopperBackpack-v1", record_log=False, record_video=False))
 
-    mp_dim = 0
-    #policy_pre = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
-    split_dim = 2
-
+    mp_dim = 1
+    policy_pre = joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/policy_cont.pkl')
+    split_dim = 3
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(100, 50, 25),
         #append_dim=2,
-        net_mode=5,
+        net_mode=6,
 
         mp_dim=mp_dim,
         mp_sel_hid_dim=12,
@@ -33,14 +33,14 @@ def run_task(*_):
         learn_segment = False,
         split_layer=[0],
         split_num=split_dim,
-
+        split_units=joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/split_scheme_backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start_orth_0.5.pkl'),
+        split_init_net=policy_pre,
     )
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
     '''policy = CategoricalMLPPolicy(
         env_spec=env.spec,
         hidden_sizes=(64, 64),
     )'''
-
     #policy = joblib.load('data/trained/policy_2d_restfoot_sd6_perturb_001_1500.pkl')
     '''policy_prev = joblib.load('data/trained/policy_2d_footstrength_sd4_1000.pkl')
 
@@ -58,8 +58,9 @@ def run_task(*_):
             policy.get_params(trainable=True)[paramid].set_value(params[paramid].get_value(borrow=True))
     '''
 
-    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=split_dim)
-    
+    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=split_dim*0)
+    #baseline = GaussianMLPBaseline(env_spec=env.spec, regressor_args={'hidden_sizes':(128,32)}) 
+
     #policy = params['policy']
     #baseline = params['baseline']
 
@@ -67,9 +68,9 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=10000,
+        batch_size=75000,
         max_path_length=env.horizon,
-        n_itr=500,
+        n_itr=250,
 
 
         discount=0.995,
@@ -87,13 +88,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=2,
+    n_parallel=8,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=5,
-    exp_name='cartpoleswingup',
+    seed=7,
+    exp_name='hopper_backpack_slope_sd7_gradsplit5_1200start_unweighted_vanillagrad_1500',
 
     # plot=True,
 )

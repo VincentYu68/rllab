@@ -2079,7 +2079,7 @@ class MLP_SplitAct(LasagnePowered, Serializable):
                 l_out_share = L.DenseLayer(
                     l_hid,
                     num_units=len(shared_indices),
-                    nonlinearity=hidden_nonlinearity,
+                    nonlinearity=output_nonlinearity,
                     name="%soutput_share" % (prefix),
                     W=hidden_W_init,
                     b=hidden_b_init,
@@ -2087,7 +2087,11 @@ class MLP_SplitAct(LasagnePowered, Serializable):
                 l_out_share.get_params()[0].set_value(initial_weights_W[:, shared_indices])
                 l_out_share.get_params()[1].set_value(initial_weights_b[shared_indices])
                 self._layers.append(l_out_share)
-                l_out = L.concat([l_out_share, l_out_split_sum])
+                new_order = shared_indices + split_indices
+                recover_order = []
+                for idx in range(len(new_order)):
+                    recover_order.append(new_order.index(idx))
+                l_out = SplitLayer(L.concat([l_out_share, l_out_split_sum]), recover_order)
             else:
                 l_out = l_out_split_sum
         else:
