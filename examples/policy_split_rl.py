@@ -102,6 +102,8 @@ if __name__ == '__main__':
         )
         baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
+        policy = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl')
+
         algo = TRPO(
             env=env,
             policy=policy,
@@ -119,13 +121,13 @@ if __name__ == '__main__':
         parallel_sampler.initialize(n_parallel=1)
         algo.start_worker()
 
-        for i in range(initialize_epochs):
+        '''for i in range(initialize_epochs):
             paths = algo.sampler.obtain_samples(0)
             # if not split
             samples_data = algo.sampler.process_samples(0, paths)
             opt_data = algo.optimize_policy(0, samples_data)
             print(dict(logger._tabular)['AverageReturn'])
-        joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl', compress=True)
+        joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl', compress=True)'''
 
         print('------- initial training complete ---------------')
 
@@ -306,7 +308,7 @@ if __name__ == '__main__':
                     # if not split
                     samples_data = split_algo.sampler.process_samples(0, paths)
                     opt_data = split_algo.optimize_policy(0, samples_data)
-                    reward = (dict(logger._tabular)['AverageReturn'])
+                    reward = float((dict(logger._tabular)['AverageReturn']))
                     learning_curve.append(reward)
                 avg_learning_curve.append(learning_curve)
 
@@ -314,6 +316,7 @@ if __name__ == '__main__':
             pred_list.append(avg_error / reps)
             print(split_percentage, avg_error / reps)
             split_algo.shutdown_worker()
+            print(avg_learning_curve)
             avg_learning_curve = np.mean(avg_learning_curve, axis=0)
             if not individual_test:
                 learning_curves[split_id].append(avg_learning_curve)
@@ -341,7 +344,7 @@ if __name__ == '__main__':
             plt.plot(avg_learning_curve[i], label=str(split_percentages[i]))
         plt.legend(bbox_to_anchor=(0.3, 0.3),
         bbox_transform=plt.gcf().transFigure, numpoints=1)
-        plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/split_learning_curves.png')
+        plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/split_learning_curves.png')
 
     plt.close('all')
 

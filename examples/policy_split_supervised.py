@@ -64,7 +64,7 @@ def sample_tasks(dim, difficulties, seed = None):
         for mutation in range(int(difficulty)):
             mutate_target = unmutated_lsit[np.random.randint(len(unmutated_lsit))]
             unmutated_lsit.remove(mutate_target)
-            type = np.random.randint(3)
+            type = np.random.randint(1)
             idx1 = np.random.randint(dim)
             idx2 = idx1
             while idx2 == idx1:
@@ -124,17 +124,21 @@ if __name__ == '__main__':
     dim = 6
     in_dim = dim+1
     out_dim = dim
-    difficulties = [1,1]
+    difficulties = [0,1,2, 3, 4]
     random_split = True
-    prioritized_split = False
+    prioritized_split = True
     append = str(difficulties)
     reps = 5
     if random_split:
         append += '_rand'
         if prioritized_split:
             append += '_prio'
+    init_epochs = 5
     epochs = 40
+    test_epochs = 400
     hidden_size = (32,16)
+    append += str(init_epochs) + '_' + str(epochs) + '_' + str(test_epochs)+'_' + str(hidden_size)
+
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
     split_percentages = [0.0, 0.01, 0.05, 0.1, 0.3, 0.6]
@@ -178,7 +182,7 @@ if __name__ == '__main__':
         out = T.function([network.input_layer.input_var], prediction, allow_input_downcast=True)
 
         Xs, Ys = synthesize_data(dim, 2000, tasks)
-        train(train_fn, np.concatenate(Xs), np.concatenate(Ys), 50)
+        train(train_fn, np.concatenate(Xs), np.concatenate(Ys), init_epochs)
         print('------- initial training complete ---------------')
 
         init_param_value = np.copy(network.get_param_values())
@@ -335,7 +339,7 @@ if __name__ == '__main__':
                 split_network.set_param_values(split_init_param)
 
                 Xs, Ys = synthesize_data(dim, 2000, tasks, split_param_size != 0)
-                losses = train(train_fn_split, np.concatenate(Xs), np.concatenate(Ys), 400, batch = 32, shuffle=True)
+                losses = train(train_fn_split, np.concatenate(Xs), np.concatenate(Ys), test_epochs, batch = 32, shuffle=True)
 
                 testXs, testYs = synthesize_data(dim, 10000, tasks, split_param_size != 0)
 
