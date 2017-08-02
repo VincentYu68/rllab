@@ -101,6 +101,7 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
     if hasattr(dartenv, 'param_manager') and G.mp_resamp['use_adjusted_resample']:
         if dartenv.train_UP:
             dartenv.param_manager.resample_parameters()
+            dartenv.resample_MP = False
             model_parameter = dartenv.param_manager.get_simulator_parameters()
             if G.mp_resamp['mr_activated']:
                 model_parameter = G.mp_resamp['mr_buffer'][np.random.randint(0, int(len(G.mp_resamp['mr_buffer'])), 1)[0]]
@@ -110,7 +111,7 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
             sample_num = 0
             sampled_paths = []
             while sample_num <= G.env.horizon * 0.9:
-                path = rollout(G.env, G.policy, max_path_length, resample_mp=model_parameter)
+                path = rollout(G.env, G.policy, max_path_length, resample_mp=model_parameter+np.random.uniform(-0.005, 0.005, len(model_parameter)))
                 sampled_paths.append(path)
                 sample_num += len(path["rewards"])
             return sampled_paths, sample_num
