@@ -167,11 +167,11 @@ if __name__ == '__main__':
         print('------- collected gradient info -------------')
 
         split_counts = []
-        for i in range(len(task_grads[0][0])-2):
+        for i in range(len(task_grads[0][0])-1):
             split_counts.append(np.zeros(task_grads[0][0][i].shape))
 
         for i in range(len(task_grads[0])):
-            for k in range(len(task_grads[0][i])-2):
+            for k in range(len(task_grads[0][i])-1):
                 region_gradients = []
                 for region in range(len(task_grads)):
                     region_gradients.append(task_grads[region][i][k])

@@ -29,6 +29,7 @@ class TRPOSplit(NPO):
             optimizer_args=None,
             mp_dim = 2,
             split_weight = 0.1,
+            split_importance = None,
             **kwargs):
         if optimizer is None:
             if optimizer_args is None:
@@ -44,7 +45,7 @@ class TRPOSplit(NPO):
             ent_input.append(np.concatenate([self.base, np.random.random(self.mp_dim)]).tolist())
         self.ent_input = [np.array(ent_input)]
         self.split_weight = split_weight
-
+        self.split_importance = split_importance
 
         super(TRPOSplit, self).__init__(optimizer=optimizer, **kwargs)
 
@@ -110,10 +111,14 @@ class TRPOSplit(NPO):
         for splitid in range(2):
             for splitid2 in range(splitid+1, 2):
                 for pid in range(len(split_params[0])):
+                    weight_mat = 1
+                    if self.split_importance is not None:
+                        print(len(self.split_importance), len(split_params[0]))
+                        weight_mat = np.clip(1.0/self.split_importance[pid], 0, 1e4)
                     if sim_loss is None:
-                        sim_loss = self.split_weight / total_param_size * TT.sum(((split_params[splitid][pid] - split_params[splitid2][pid])**2))
+                        sim_loss = self.split_weight / total_param_size * TT.sum(weight_mat*((split_params[splitid][pid] - split_params[splitid2][pid])**2))
                     else:
-                        sim_loss += self.split_weight / total_param_size * TT.sum(((split_params[splitid][pid] - split_params[splitid2][pid])**2))
+                        sim_loss += self.split_weight / total_param_size * TT.sum(weight_mat*((split_params[splitid][pid] - split_params[splitid2][pid])**2))
         surr_loss += sim_loss
 
         input_list = [

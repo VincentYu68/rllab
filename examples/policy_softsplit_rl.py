@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     random_split = False
     prioritized_split = False
-    append = 'hopper_0802_sd3_10k_300_30_200_unweighted'
+    append = 'hopper_0802_sd1_10k_300_30_200_unweighted'
     reps = 1
     if random_split:
         append += '_rand'
@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
-        np.random.seed(testit*3+3)
+        np.random.seed(testit*3+1)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -185,11 +185,11 @@ if __name__ == '__main__':
         print('------- collected gradient info -------------')
 
         split_counts = []
-        for i in range(len(task_grads[0][0])-2):
+        for i in range(len(task_grads[0][0])-1):
             split_counts.append(np.zeros(task_grads[0][0][i].shape))
 
         for i in range(len(task_grads[0])):
-            for k in range(len(task_grads[0][i])-2):
+            for k in range(len(task_grads[0][i])-1):
                 region_gradients = []
                 for region in range(len(task_grads)):
                     region_gradients.append(task_grads[region][i][k])
@@ -233,9 +233,6 @@ if __name__ == '__main__':
         plt.plot(metrics_lsit[:,0], metrics_lsit[:, 1])
         plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/metric_rank.png')
         average_metric_list.append(metrics_lsit)
-
-        for i in range(int(len(split_counts))):
-            split_counts[i] *= 0
 
         pred_list = []
         # use the optimized network
@@ -282,6 +279,7 @@ if __name__ == '__main__':
                     discount=0.995,
                     step_size=0.01,
                     gae_lambda=0.97,
+                    split_importance = split_counts,
                 )
             else:
                 split_algo = TRPO(
