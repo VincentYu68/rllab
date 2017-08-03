@@ -89,8 +89,6 @@ class TRPOSplit(NPO):
         else:
             valid_var = None
 
-        entropy_input_var = TT.matrix('entropy_inputs')
-
         dist_info_vars = self.policy.dist_info_sym(obs_var, state_info_vars)
         kl = dist.kl_sym(old_dist_info_vars, dist_info_vars)
         lr = dist.likelihood_ratio_sym(action_var, old_dist_info_vars, dist_info_vars)
@@ -118,13 +116,11 @@ class TRPOSplit(NPO):
                         sim_loss += self.split_weight / total_param_size * TT.sum(((split_params[splitid][pid] - split_params[splitid2][pid])**2))
         surr_loss += sim_loss
 
-        # entropy of blended weights
-        surr_loss += 1.0 * self.policy.bw_entropy(entropy_input_var) - 1.0 * self.policy.bw_choice_entropy(entropy_input_var)
         input_list = [
                          obs_var,
                          action_var,
                          advantage_var,
-                     ]  + state_info_vars_list + old_dist_info_vars_list + [entropy_input_var]
+                     ]  + state_info_vars_list + old_dist_info_vars_list
         if is_recurrent:
             input_list.append(valid_var)
 

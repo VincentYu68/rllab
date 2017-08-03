@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     random_split = False
     prioritized_split = False
-    append = 'hopper_0703_sd3_10k_300_30_200_unweighted'
+    append = 'hopper_0802_sd3_10k_300_30_200_unweighted'
     reps = 3
     if random_split:
         append += '_rand'
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         )
         algo.init_opt()
         from rllab.sampler import parallel_sampler
-        parallel_sampler.initialize(n_parallel=1)
+        parallel_sampler.initialize(n_parallel=4)
         algo.start_worker()
 
         '''for i in range(initialize_epochs):
@@ -292,7 +292,7 @@ if __name__ == '__main__':
             )
             split_algo.init_opt()
 
-            parallel_sampler.initialize(n_parallel=1)
+            parallel_sampler.initialize(n_parallel=4)
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
