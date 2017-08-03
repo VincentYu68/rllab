@@ -124,11 +124,11 @@ if __name__ == '__main__':
     dim = 6
     in_dim = dim+1
     out_dim = dim
-    difficulties = [0]
+    difficulties = [0, 1, 2, 3, 4]
     random_split = False
     prioritized_split = False
     append = 'soft_'+str(difficulties)
-    reps = 5
+    reps = 1
     if random_split:
         append += '_rand'
         if prioritized_split:
@@ -136,12 +136,12 @@ if __name__ == '__main__':
     init_epochs = 5
     epochs = 40
     test_epochs = 100
-    hidden_size = (8,)
+    hidden_size = (32, 16)
     append += str(init_epochs) + '_' + str(epochs) + '_' + str(test_epochs)+'_' + str(hidden_size)
 
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.1, 1000.0]
+    split_percentages = [0.0, 0.1, 1]
     test_num = 1
     performances = []
     learning_curves = []
@@ -300,13 +300,16 @@ if __name__ == '__main__':
                         for pid in range(len(split_params[0])):
                             weight_mat = np.clip(1.0/split_counts[pid], 0, 1e4)
                             if sim_loss is None:
-                                sim_loss = split_percentage / total_param_size * TT.sum(((split_params[splitid][pid] - split_params[splitid2][pid])**2))
+                                sim_loss = split_percentage / total_param_size * TT.sum(weight_mat*((split_params[splitid][pid] - split_params[splitid2][pid])**2))
                             else:
-                                sim_loss += split_percentage / total_param_size * TT.sum(((split_params[splitid][pid] - split_params[splitid2][pid])**2))
+                                sim_loss += split_percentage / total_param_size * TT.sum(weight_mat*((split_params[splitid][pid] - split_params[splitid2][pid])**2))
                 if split_percentage > 1.0:
                     loss_split += sim_loss
             params_split = split_network.get_params(trainable=True)
-            updates_split = lasagne.updates.sgd(loss_split, params_split, learning_rate=0.002)
+            if split_param_size != 0:
+                updates_split = lasagne.updates.sgd(loss_split, params_split, learning_rate=0.002*(len(difficulties)+1))
+            else:
+                updates_split = lasagne.updates.sgd(loss_split, params_split, learning_rate=0.002)
             train_fn_split = T.function([split_network.input_layer.input_var, out_var], loss_split, updates=updates_split, allow_input_downcast=True)
             out = T.function([split_network.input_layer.input_var], prediction, allow_input_downcast=True)
             gradsplit = T.grad(loss_split, params_split, disconnected_inputs='warn')
@@ -320,11 +323,24 @@ if __name__ == '__main__':
             avg_error = 0.0
             avg_learning_curve = []
 
-            for rep in range(1):
+            for rep in range(int(reps)):
                 split_network.set_param_values(split_init_param)
-
                 Xs, Ys = synthesize_data(dim, 2000, tasks, split_param_size != 0)
                 losses = train(train_fn_split, np.concatenate(Xs), np.concatenate(Ys), test_epochs, batch = 32, shuffle=True)
+                '''losses = []
+                for t in range(test_epochs):
+                    ls = train(train_fn_split, np.concatenate(Xs), np.concatenate(Ys), 1, batch = 32, shuffle=True)
+                    if split_param_size != 0:
+                        pm1 = split_network.get_split_parameter(0)
+                        pm2 = split_network.get_split_parameter(1)
+                        for pid in range(len(pm1)):
+                            avg_pm = 0.5*(pm1[pid].get_value() + pm2[pid].get_value())
+                            pm1[pid].set_value(avg_pm)
+                            pm2[pid].set_value(avg_pm)
+
+                    losses.append(ls)'''
+
+
 
                 testXs, testYs = synthesize_data(dim, 10000, tasks, split_param_size != 0)
 
@@ -338,10 +354,10 @@ if __name__ == '__main__':
                     for i, pm in enumerate(params1):
                         pdiff += np.sum((params1[i].get_value() - params2[i].get_value())**2)
                     #print('parameter difference: ', split_percentage, pdiff)
-                    print(params1[0].name, params1[0].get_value())
-                    print(params2[0].name, params2[0].get_value())
-                else:
-                    print(split_network.get_params()[0].name, split_network.get_params()[0].get_value())
+                    #print(params1[0].name, params1[0].get_value())
+                    #print(params2[0].name, params2[0].get_value())
+                #else:
+                #    print(split_network.get_params()[0].name, split_network.get_params()[0].get_value())
 
             pred_list.append(avg_error / reps)
             print(split_percentage, avg_error / reps)

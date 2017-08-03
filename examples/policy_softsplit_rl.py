@@ -73,8 +73,8 @@ if __name__ == '__main__':
         if prioritized_split:
             append += '_prio'
     initialize_epochs = 300
-    grad_epochs = 30
-    test_epochs = 200
+    grad_epochs = 20
+    test_epochs = 50
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
     split_percentages = [0.0, 0.01, 0.1, 1.0]
@@ -119,7 +119,7 @@ if __name__ == '__main__':
         )
         algo.init_opt()
         from rllab.sampler import parallel_sampler
-        parallel_sampler.initialize(n_parallel=1)
+        parallel_sampler.initialize(n_parallel=2)
         algo.start_worker()
 
         '''for i in range(initialize_epochs):
@@ -281,7 +281,7 @@ if __name__ == '__main__':
                 )
             split_algo.init_opt()
 
-            parallel_sampler.initialize(n_parallel=1)
+            parallel_sampler.initialize(n_parallel=2)
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
