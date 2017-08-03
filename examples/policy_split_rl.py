@@ -36,7 +36,7 @@ from rllab.envs.gym_env import GymEnv
 from gym import error, spaces
 from rllab.envs.normalized_env import normalize
 from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
-
+import pickle
 
 def get_gradient(algo, samples_data):
     all_input_values = tuple(ext.extract(
@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     random_split = False
     prioritized_split = False
-    append = 'hopper_0703_sd3_10k_300_30_200_unweighted'
+    append = 'hopper_0703_sd0_10k_300_30_200_unweighted'
     reps = 3
     if random_split:
         append += '_rand'
@@ -83,6 +83,7 @@ if __name__ == '__main__':
 
     test_num = 1
     performances = []
+    n_parallel = 6
 
     if not os.path.exists('data/trained/gradient_temp/rl_split_' + append):
         os.makedirs('data/trained/gradient_temp/rl_split_' + append)
@@ -91,7 +92,7 @@ if __name__ == '__main__':
 
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
-        np.random.seed(testit*3+3)
+        np.random.seed(testit*3+0)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -102,7 +103,7 @@ if __name__ == '__main__':
         )
         baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
-        policy = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl')
+        #policy = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl')
 
         algo = TRPO(
             env=env,
@@ -118,16 +119,16 @@ if __name__ == '__main__':
         )
         algo.init_opt()
         from rllab.sampler import parallel_sampler
-        parallel_sampler.initialize(n_parallel=1)
+        parallel_sampler.initialize(n_parallel=n_parallel)
         algo.start_worker()
 
-        '''for i in range(initialize_epochs):
+        for i in range(initialize_epochs):
             paths = algo.sampler.obtain_samples(0)
             # if not split
             samples_data = algo.sampler.process_samples(0, paths)
             opt_data = algo.optimize_policy(0, samples_data)
             print(dict(logger._tabular)['AverageReturn'])
-        joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl', compress=True)'''
+        joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl', compress=True)
 
         print('------- initial training complete ---------------')
 
@@ -151,6 +152,7 @@ if __name__ == '__main__':
             task_paths = [[], []]
             for path in paths:
                 taskid = 0
+                print(path['env_infos']['model_parameters'][-1][0])
                 if path['env_infos']['model_parameters'][-1][0] > 0.5:
                     taskid = 1
                 task_paths[taskid].append(path)
@@ -183,7 +185,7 @@ if __name__ == '__main__':
                 else:
                     split_counts[k] += np.random.random(split_counts[k].shape)
 
-        for j in range(len(split_counts)):
+        '''for j in range(len(split_counts)):
             plt.figure()
             plt.title(policy._mean_network.get_params()[j].name)
             if len(split_counts[j].shape) == 2:
@@ -193,7 +195,7 @@ if __name__ == '__main__':
                 plt.plot(split_counts[j])
 
             plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/' + policy._mean_network.get_params()[j].name + '.png')
-
+        '''
         algo.shutdown_worker()
 
         # test the effect of splitting
@@ -211,11 +213,11 @@ if __name__ == '__main__':
         split_indices.sort(key=lambda x:x[1], reverse=True)
 
         metrics_lsit = np.array(metrics_lsit)
-        plt.figure()
+        '''plt.figure()
         plt.plot(metrics_lsit[:,0], metrics_lsit[:, 1])
-        plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/metric_rank.png')
+        plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/metric_rank.png')'''
         average_metric_list.append(metrics_lsit)
-
+        
         for i in range(int(len(split_counts))):
             split_counts[i] *= 0
 
@@ -292,7 +294,7 @@ if __name__ == '__main__':
             )
             split_algo.init_opt()
 
-            parallel_sampler.initialize(n_parallel=1)
+            parallel_sampler.initialize(n_parallel=n_parallel)
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
@@ -331,20 +333,21 @@ if __name__ == '__main__':
         plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/metric_rank.png')
 
     np.savetxt('data/trained/gradient_temp/rl_split_' + append + '/performance.txt', performances)
-    plt.figure()
+    '''plt.figure()
     plt.plot(split_percentages, np.mean(performances, axis=0))
     plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/split_performance.png')
-
+    '''
     if not individual_test:
         avg_learning_curve = []
         for i in range(len(learning_curves)):
             avg_learning_curve.append(np.mean(learning_curves[i], axis=0))
-        plt.figure()
+        np.savetxt('data/trained/gradient_temp/rl_split_' + append + '/learning_curves.txt', avg_learning_curve)
+        '''plt.figure()
         for i in range(len(split_percentages)):
             plt.plot(avg_learning_curve[i], label=str(split_percentages[i]))
         plt.legend(bbox_to_anchor=(0.3, 0.3),
         bbox_transform=plt.gcf().transFigure, numpoints=1)
         plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/split_learning_curves.png')
-
+        '''
     plt.close('all')
 
