@@ -66,15 +66,18 @@ if __name__ == '__main__':
 
     random_split = False
     prioritized_split = False
-    append = 'hopper_0703_sd3_10k_300_30_200_unweighted'
-    reps = 3
+    append = 'hopper_0802_sd3_10k_300_30_200_unweighted'
+    reps = 1
     if random_split:
         append += '_rand'
         if prioritized_split:
             append += '_prio'
     initialize_epochs = 300
-    grad_epochs = 20
-    test_epochs = 50
+    grad_epochs = 50
+    test_epochs = 200
+
+    load_init_policy = True
+    load_split_data = True
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
     split_percentages = [0.0, 0.01, 0.1, 1.0]
@@ -103,7 +106,8 @@ if __name__ == '__main__':
         )
         baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
-        policy = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl')
+        if load_init_policy:
+            policy = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl')
 
         algo = TRPO(
             env=env,
@@ -122,13 +126,14 @@ if __name__ == '__main__':
         parallel_sampler.initialize(n_parallel=2)
         algo.start_worker()
 
-        '''for i in range(initialize_epochs):
-            paths = algo.sampler.obtain_samples(0)
-            # if not split
-            samples_data = algo.sampler.process_samples(0, paths)
-            opt_data = algo.optimize_policy(0, samples_data)
-            print(dict(logger._tabular)['AverageReturn'])
-        joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl', compress=True)'''
+        if not load_init_policy:
+            for i in range(initialize_epochs):
+                paths = algo.sampler.obtain_samples(0)
+                # if not split
+                samples_data = algo.sampler.process_samples(0, paths)
+                opt_data = algo.optimize_policy(0, samples_data)
+                print(dict(logger._tabular)['AverageReturn'])
+            joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl', compress=True)
 
         print('------- initial training complete ---------------')
 
@@ -137,20 +142,35 @@ if __name__ == '__main__':
         task_grads = []
         for i in range(2):
             task_grads.append([])
-        net_weights = []
+
+        if not load_split_data:
+            split_data = []
+            net_weights = []
+            for i in range(grad_epochs):
+                cur_param_val = np.copy(policy.get_param_values())
+                cur_param = copy.deepcopy(policy.get_params())
+
+                cp = []
+                for param in policy._mean_network.get_params():
+                    cp.append(np.copy(param.get_value()))
+                net_weights.append(cp)
+
+                paths = algo.sampler.obtain_samples(0)
+                split_data.append(paths)
+
+                algo.sampler.process_samples(0, paths)
+                samples_data = algo.sampler.process_samples(0, paths)
+                opt_data = algo.optimize_policy(0, samples_data)
+            joblib.dump(split_data, 'data/trained/gradient_temp/rl_split_' + append + '/split_data.pkl', compress=True)
+            joblib.dump(net_weights, 'data/trained/gradient_temp/rl_split_' + append + '/net_weights.pkl', compress=True)
+        else:
+            split_data = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/split_data.pkl')
+            net_weights = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/net_weights.pkl')
+
         for i in range(grad_epochs):
-            cur_param_val = np.copy(policy.get_param_values())
-            cur_param = copy.deepcopy(policy.get_params())
-
-            cp = []
-            for param in policy._mean_network.get_params():
-                cp.append(np.copy(param.get_value()))
-            net_weights.append(cp)
-
-            paths = algo.sampler.obtain_samples(0)
             # if not split
             task_paths = [[], []]
-            for path in paths:
+            for path in split_data[i]:
                 taskid = 0
                 if path['env_infos']['model_parameters'][-1][0] > 0.5:
                     taskid = 1
@@ -162,9 +182,6 @@ if __name__ == '__main__':
                 grad = get_gradient(algo, samples_data)
                 task_grads[j].append(grad)
 
-            algo.sampler.process_samples(0, paths)
-            samples_data = algo.sampler.process_samples(0, paths)
-            opt_data = algo.optimize_policy(0, samples_data)
         print('------- collected gradient info -------------')
 
         split_counts = []
@@ -299,6 +316,7 @@ if __name__ == '__main__':
                     opt_data = split_algo.optimize_policy(0, samples_data)
                     reward = float((dict(logger._tabular)['AverageReturn']))
                     learning_curve.append(reward)
+                    print('============= Finished Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)
 
                 avg_error += float(reward)
@@ -330,7 +348,7 @@ if __name__ == '__main__':
             avg_learning_curve.append(np.mean(learning_curves[i], axis=0))
         plt.figure()
         for i in range(len(split_percentages)):
-            plt.plot(avg_learning_curve[i], label=str(split_percentages[i]))
+            plt.plot(avg_learning_curve[i], label=str(split_percentages[i]), alpha=0.4)
         plt.legend(bbox_to_anchor=(0.3, 0.3),
         bbox_transform=plt.gcf().transFigure, numpoints=1)
         plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/split_learning_curves.png')
