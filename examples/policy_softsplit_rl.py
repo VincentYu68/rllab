@@ -82,7 +82,7 @@ if __name__ == '__main__':
     load_split_data = False
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.00001, 0.01]
+    split_percentages = [0.0, 0.1, 0.01]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
