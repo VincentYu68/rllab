@@ -56,8 +56,8 @@ def get_gradient(algo, samples_data):
 
 if __name__ == '__main__':
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
-    hidden_size = (64,32)
-    batch_size = 10000
+    hidden_size = (8,)
+    batch_size = 2000
     dartenv = env._wrapped_env.env.env
     if env._wrapped_env.monitoring:
         dartenv = dartenv.env
@@ -66,11 +66,12 @@ if __name__ == '__main__':
 
     random_split = False
     prioritized_split = False
-    initialize_epochs = 50
+
+    initialize_epochs = 10
     grad_epochs = 50
     test_epochs = 100
-    append = 'hopper_0802_sd1_' + str(int(batch_size/1000)) + 'k_'+str(initialize_epochs)\
-                                      +'_'+str(grad_epochs) + '_'+str(test_epochs)+'_unweighted'
+    append = 'hopper_0802_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+
     reps = 1
     if random_split:
         append += '_rand'
@@ -96,7 +97,7 @@ if __name__ == '__main__':
 
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
-        np.random.seed(testit*3+1)
+        np.random.seed(testit*3)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -124,7 +125,7 @@ if __name__ == '__main__':
         )
         algo.init_opt()
         from rllab.sampler import parallel_sampler
-        parallel_sampler.initialize(n_parallel=2)
+        parallel_sampler.initialize(n_parallel=4)
         algo.start_worker()
 
         if not load_init_policy:
@@ -173,8 +174,7 @@ if __name__ == '__main__':
             task_paths = [[], []]
             for path in split_data[i]:
                 taskid = 0
-                if path['env_infos']['model_parameters'][-1][0] > 0.5:
-                    taskid = 1
+                taskid = path['env_infos']['state_index'][-1]
                 task_paths[taskid].append(path)
 
             for j in range(2):
@@ -298,11 +298,12 @@ if __name__ == '__main__':
                 )
             split_algo.init_opt()
 
-            parallel_sampler.initialize(n_parallel=2)
+            parallel_sampler.initialize(n_parallel=4)
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
             split_init_param = np.copy(split_policy.get_param_values())
+            split_init_pms = copy.deepcopy(split_policy.get_params())
             avg_error = 0.0
 
             avg_learning_curve = []
@@ -320,6 +321,9 @@ if __name__ == '__main__':
                 avg_learning_curve.append(learning_curve)
 
                 avg_error += float(reward)
+                '''print('parameters: ', split_policy.get_params()[0].get_value()-split_init_pms[0].get_value())
+                if split_percentage > 0:
+                    print(split_policy.get_params()[2].get_value()-split_init_pms[0].get_value())'''
             pred_list.append(avg_error / reps)
             print(split_percentage, avg_error / reps)
             split_algo.shutdown_worker()

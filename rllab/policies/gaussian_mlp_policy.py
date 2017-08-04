@@ -15,6 +15,7 @@ from rllab.misc import logger
 from rllab.misc import ext
 from rllab.distributions.diagonal_gaussian import DiagonalGaussian
 import theano.tensor as TT
+import theano as T
 
 import joblib
 
@@ -227,6 +228,7 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                 inputs=[obs_var],
                 outputs=[entropy2]
             )
+
 
     # average entropy of the blend weight
     def bw_entropy(self, obs_var):
