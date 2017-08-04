@@ -11,6 +11,7 @@ import rllab.plotter as plotter
 from rllab.policies.base import Policy
 from rllab.misc import ext
 import theano
+import theano as T
 import theano.tensor as TT
 import lasagne
 
@@ -108,18 +109,22 @@ class TRPOSplit(NPO):
         total_param_size = len(self.policy._mean_network.get_param_values())
         for splitid in range(2):
             split_params.append(self.policy._mean_network.get_split_parameter(splitid))
+
         for splitid in range(2):
             for splitid2 in range(splitid+1, 2):
                 for pid in range(len(split_params[0])):
                     weight_mat = 1
                     if self.split_importance is not None:
                         print(len(self.split_importance), len(split_params[0]))
-                        weight_mat = np.clip(1.0/self.split_importance[pid], 0, 1e4)
+                        weight_mat = np.clip(1.0/self.split_importance[pid], 0, 1e2)
                     if sim_loss is None:
                         sim_loss = self.split_weight / total_param_size * TT.sum(weight_mat*((split_params[splitid][pid] - split_params[splitid2][pid])**2))
                     else:
                         sim_loss += self.split_weight / total_param_size * TT.sum(weight_mat*((split_params[splitid][pid] - split_params[splitid2][pid])**2))
-        surr_loss += sim_loss
+        if self.split_weight > 0.1:
+            surr_loss += sim_loss
+            #self.step_size += 0.01
+
 
         input_list = [
                          obs_var,
@@ -136,4 +141,37 @@ class TRPOSplit(NPO):
             inputs=input_list,
             constraint_name="mean_kl"
         )
+        self.f_sim_loss = T.function([], sim_loss)
+
+        return dict()
+
+    def optimize_policy(self, itr, samples_data):
+        all_input_values = tuple(ext.extract(
+            samples_data,
+            "observations", "actions", "advantages"
+        ))
+
+        agent_infos = samples_data["agent_infos"]
+        state_info_list = [agent_infos[k] for k in self.policy.state_info_keys]
+        dist_info_list = [agent_infos[k] for k in self.policy.distribution.dist_info_keys]
+        all_input_values += tuple(state_info_list) + tuple(dist_info_list)
+
+        print('Similarity Loss: ', self.f_sim_loss())
+
+        if self.policy.recurrent:
+            all_input_values += (samples_data["valids"],)
+        loss_before = self.optimizer.loss(all_input_values)
+
+        mean_kl_before = self.optimizer.constraint_val(all_input_values)
+        self.optimizer.optimize(all_input_values)
+
+
+        mean_kl = self.optimizer.constraint_val(all_input_values)
+        loss_after = self.optimizer.loss(all_input_values)
+        logger.record_tabular('LossBefore', loss_before)
+        logger.record_tabular('LossAfter', loss_after)
+        logger.record_tabular('MeanKLBefore', mean_kl_before)
+        logger.record_tabular('MeanKL', mean_kl)
+        logger.record_tabular('dLoss', loss_before - loss_after)
+
         return dict()
