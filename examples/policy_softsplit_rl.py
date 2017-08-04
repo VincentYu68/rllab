@@ -66,21 +66,22 @@ if __name__ == '__main__':
 
     random_split = False
     prioritized_split = False
-    append = 'hopper_0802_sd1_10k_300_30_200_unweighted'
+    initialize_epochs = 50
+    grad_epochs = 50
+    test_epochs = 100
+    append = 'hopper_0802_sd1_' + str(int(batch_size/1000)) + 'k_'+str(initialize_epochs)\
+                                      +'_'+str(grad_epochs) + '_'+str(test_epochs)+'_unweighted'
     reps = 1
     if random_split:
         append += '_rand'
         if prioritized_split:
             append += '_prio'
-    initialize_epochs = 300
-    grad_epochs = 50
-    test_epochs = 200
 
-    load_init_policy = True
-    load_split_data = True
+    load_init_policy = False
+    load_split_data = False
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.01, 0.1, 1.0]
+    split_percentages = [0.0, 0.00001, 0.01]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -279,6 +280,7 @@ if __name__ == '__main__':
                     discount=0.995,
                     step_size=0.01,
                     gae_lambda=0.97,
+                    split_weight=split_percentage,
                     split_importance = split_counts,
                 )
             else:

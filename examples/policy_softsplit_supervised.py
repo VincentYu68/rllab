@@ -92,7 +92,9 @@ def synthesize_data(dim, size, tasks, split = False, seed = None):
         Y=[]
         for _ in range(int(per_task_size[i])):
             input = np.random.uniform(-10, 10, dim)
-            input = np.concatenate([input, [i*1.0/(len(tasks)-1)]])
+            #input = np.concatenate([input, [i*1.0/(len(tasks)-1)]])
+            task_param = np.random.uniform(i*1.0/(len(tasks)-1), (i+1)*1.0/(len(tasks)-1))
+            input = np.concatenate([input, [task_param]])
             if split:
                 split_vec = [0] * len(tasks)
                 split_vec[i] = 1
@@ -103,7 +105,8 @@ def synthesize_data(dim, size, tasks, split = False, seed = None):
             #    exec_task = copy.deepcopy(tasks[i-1])
             for idx, subtask in enumerate(exec_task):
                 if subtask[0] == 0:
-                    output[idx] = input[subtask[1]]
+                    #output[idx] = input[subtask[1]]
+                    output[idx] = input[idx] * task_param
                 elif subtask[0] == 1:
                     output[idx] = input[subtask[1]] + input[subtask[2]]
                 elif subtask[0] == 2:
@@ -124,24 +127,24 @@ if __name__ == '__main__':
     dim = 6
     in_dim = dim+1
     out_dim = dim
-    difficulties = [0, 1, 2, 3, 4]
+    difficulties = [1]
     random_split = False
     prioritized_split = False
     append = 'soft_'+str(difficulties)
-    reps = 1
+    reps = 3
     if random_split:
         append += '_rand'
         if prioritized_split:
             append += '_prio'
-    init_epochs = 5
-    epochs = 40
+    init_epochs = 50
+    epochs = 10
     test_epochs = 100
-    hidden_size = (32, 16)
+    hidden_size = (128, 64)
     append += str(init_epochs) + '_' + str(epochs) + '_' + str(test_epochs)+'_' + str(hidden_size)
 
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.1, 1]
+    split_percentages = [0.0, 0.00001, 0.001, 0.01, 0.1, 1.0]
     test_num = 1
     performances = []
     learning_curves = []
@@ -299,12 +302,13 @@ if __name__ == '__main__':
                     for splitid2 in range(splitid+1, len(difficulties)+1):
                         for pid in range(len(split_params[0])):
                             weight_mat = np.clip(1.0/split_counts[pid], 0, 1e4)
+                            if random_split:
+                                weight_mat = 1
                             if sim_loss is None:
                                 sim_loss = split_percentage / total_param_size * TT.sum(weight_mat*((split_params[splitid][pid] - split_params[splitid2][pid])**2))
                             else:
                                 sim_loss += split_percentage / total_param_size * TT.sum(weight_mat*((split_params[splitid][pid] - split_params[splitid2][pid])**2))
-                if split_percentage > 1.0:
-                    loss_split += sim_loss
+                loss_split += sim_loss
             params_split = split_network.get_params(trainable=True)
             if split_param_size != 0:
                 updates_split = lasagne.updates.sgd(loss_split, params_split, learning_rate=0.002*(len(difficulties)+1))
@@ -344,7 +348,7 @@ if __name__ == '__main__':
 
                 testXs, testYs = synthesize_data(dim, 10000, tasks, split_param_size != 0)
 
-                avg_error += test(out, np.concatenate(Xs), np.concatenate(Ys))
+                avg_error += test(out, np.concatenate(testXs), np.concatenate(testYs))
                 avg_learning_curve.append(losses)
                 if split_param_size != 0:
                     print('sim loss ', rep, simloss_fn())
