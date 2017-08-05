@@ -56,7 +56,7 @@ def get_gradient(algo, samples_data):
 if __name__ == '__main__':
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
     hidden_size = (64,32)
-    batch_size = 2000
+    batch_size = 10000
     dartenv = env._wrapped_env.env.env
     if env._wrapped_env.monitoring:
         dartenv = dartenv.env
@@ -66,10 +66,10 @@ if __name__ == '__main__':
     random_split = False
     prioritized_split = False
 
-    initialize_epochs = 10
+    initialize_epochs = 1
     grad_epochs = 10
-    test_epochs = 10
-    append = 'hopper_0802_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    test_epochs = 200
+    append = 'hopper_0901_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     reps = 1
     if random_split:
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     load_split_data = False
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.01, 0.1, 0.3]
+    split_percentages = [0.0, 0.5, 1.0]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -268,7 +268,7 @@ if __name__ == '__main__':
                     split_layer_units[0][0] += 1
                     split_layer_units[0][1] = 0
 
-            print(split_layer_units)
+            print('split_layer_units ', split_layer_units)
             policy.set_param_values(init_param_value)
             if split_param_size != 0:
                 if dartenv.avg_div != 2:
@@ -328,6 +328,7 @@ if __name__ == '__main__':
                     opt_data = split_algo.optimize_policy(0, samples_data)
                     reward = float((dict(logger._tabular)['AverageReturn']))
                     learning_curve.append(reward)
+                    print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)
 
                 avg_error += float(reward)
