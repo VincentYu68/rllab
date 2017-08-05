@@ -215,7 +215,7 @@ if __name__ == '__main__':
 
         # organize the metric into each edges and sort them
         split_metrics = []
-        for k in range(len(task_grads[0][0])):
+        for k in range(len(task_grads[0][0])-1):
             for index, value in np.ndenumerate(split_counts[k]):
                 split_metrics.append([k, index, value])
         split_metrics.sort(key=lambda x:x[2], reverse=True)
