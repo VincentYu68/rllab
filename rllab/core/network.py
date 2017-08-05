@@ -6,7 +6,7 @@ import lasagne.init as LI
 import theano.tensor as TT
 import theano
 from rllab.misc import ext
-from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer, PhaseLayer
+from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer, PhaseLayer, MaskedDenseLayer
 from rllab.core.lasagne_powered import LasagnePowered
 from rllab.core.serializable import Serializable
 
@@ -2231,3 +2231,94 @@ class MLP_SoftSplit(LasagnePowered, Serializable):
             if 'copy%d'%(split_id) in param.name:
                 return_params.append(param)
         return return_params
+
+class MLP_MaskedSplit(LasagnePowered, Serializable):
+    def __init__(self, output_dim, hidden_sizes, hidden_nonlinearity,
+                 output_nonlinearity, split_num, split_masks, init_net, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
+                 output_W_init=LI.GlorotUniform(), output_b_init=LI.Constant(0.),
+                 name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False):
+        Serializable.quick_init(self, locals())
+
+        if name is None:
+            prefix = ""
+        else:
+            prefix = name + "_"
+
+        if input_layer is None:
+            l_in = L.InputLayer(shape=(None,) + input_shape, input_var=input_var)
+        else:
+            l_in = input_layer
+        self._layers = [l_in]
+        layer_id = 0
+
+        l_input = SplitLayer(l_in, np.arange(0, input_shape[0] - split_num))
+        l_split = SplitLayer(l_in, np.arange(input_shape[0] -split_num, input_shape[0]))
+        self._layers.append(l_input)
+        self._layers.append(l_split)
+
+        l_hid = l_in
+        for idx, hidden_size in enumerate(hidden_sizes):
+            initial_weights_W = init_net.layers[layer_id+1].get_params()[0].get_value()
+            initial_weights_b = init_net.layers[layer_id + 1].get_params()[1].get_value()
+
+            split_layers = []
+            l_hid = MaskedDenseLayer(
+                l_hid,
+                num_units=(hidden_size),
+                nonlinearity=hidden_nonlinearity,
+                W_init= initial_weights_W,
+                b_init= initial_weights_b,
+                split_num = split_num,
+                split_mask_W = split_masks[layer_id*2],
+                split_mask_b = split_masks[layer_id*2+1],
+                name="%shidden_split_%d" % (prefix, idx),
+                W=hidden_W_init,
+                b=hidden_b_init,
+            )
+
+            l_hid = L.concat([l_hid, l_split])
+
+            self._layers.append(l_hid)
+            layer_id += 1
+
+        initial_weights_W = init_net.layers[layer_id + 1].get_params()[0].get_value()
+        initial_weights_b = init_net.layers[layer_id + 1].get_params()[1].get_value()
+
+        split_outputs = []
+
+        l_out = MaskedDenseLayer(
+            l_hid,
+            num_units=(output_dim),
+            nonlinearity=output_nonlinearity,
+            W_init= initial_weights_W,
+            b_init= initial_weights_b,
+            split_num = split_num,
+            split_mask_W = split_masks[layer_id*2],
+            split_mask_b = split_masks[layer_id*2+1],
+            name="%soutput_split" % (prefix),
+            W=output_W_init,
+            b=output_b_init,
+        )
+        self._layers.append(l_out)
+
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
