@@ -127,7 +127,7 @@ if __name__ == '__main__':
     difficulties = [5, 5, 5]
     random_split = False
     prioritized_split = False
-    append = str(difficulties)
+    append = 'edgewise_'+str(difficulties)
     reps = 1
     if random_split:
         append += '_rand'
@@ -155,7 +155,6 @@ if __name__ == '__main__':
 
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
-
         seed = testit*3+1
         np.random.seed(seed)
 
@@ -248,72 +247,41 @@ if __name__ == '__main__':
 
             plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/' + network.get_params()[j].name + '.png')
 
+        # organize the metric into each edges and sort them
+        split_metrics = []
+        for k in range(len(task_grads[0][0])):
+            for index, value in np.ndenumerate(split_counts[k]):
+                split_metrics.append([k, index, value])
+        split_metrics.sort(key=lambda x:x[2], reverse=True)
+
         # test the effect of splitting
         total_param_size = len(network.get_param_values())
-
-        split_indices = []
-        metrics_lsit = []
-        ord = 0
-        for p in range(int(len(split_counts)/2)):
-            for col in range(split_counts[p*2].shape[1]):
-                split_metric = np.mean(split_counts[p*2][:, col]) + split_counts[p*2+1][col]
-                split_indices.append([[p, col], split_metric])
-                metrics_lsit.append([ord, split_metric])
-                ord+=1
-        split_indices.sort(key=lambda x:x[1], reverse=True)
-
-        metrics_lsit = np.array(metrics_lsit)
-        plt.figure()
-        plt.plot(metrics_lsit[:,0], metrics_lsit[:, 1])
-        plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/metric_rank.png')
-        average_metric_list.append(metrics_lsit)
-
-        for i in range(int(len(split_counts))):
-            split_counts[i] *= 0
 
         pred_list = []
         # use the optimized network
         init_param_value = np.copy(network.get_param_values())
         sanity = out([np.concatenate([np.arange(dim), [0]])])
-        individual_test = False
-        if individual_test:
-            split_percentages = np.arange(len(metrics_lsit))
-            split_layer_units = [[0, -1]]
+
         for split_id, split_percentage in enumerate(split_percentages):
-            if not individual_test:
-                split_param_size = split_percentage * total_param_size
-                current_split_size = 0
-                split_layer_units = []
-                for i in range(len(split_indices)):
-                    pm = split_indices[i][0][0]
-                    col = split_indices[i][0][1]
-                    split_counts[pm*2][:, col] = 1
-                    split_counts[pm*2+1][col] = 1
-                    current_split_size += split_counts[pm*2].shape[0]+1
-                    split_layer_units.append([pm, col])
-                    if current_split_size > int(split_param_size):
-                        break
+            split_param_size = int(split_percentage * total_param_size)
+            current_split_size = 0
+            masks = []
+            for k in range(len(task_grads[0][0])):
+                masks.append(np.zeros(split_counts[k].shape))
 
-                split_layer_units.sort(key=lambda x: (x[0], x[1]))
-            else:
-                split_param_size = 1
-                split_layer_units[0][1] += 1
-                print(split_counts[split_layer_units[0][0]*2+1].shape[0])
-                if split_counts[split_layer_units[0][0]*2+1].shape[0] <= split_layer_units[0][1]:
-                    split_layer_units[0][0] += 1
-                    split_layer_units[0][1] = 0
+            for i in range(split_param_size):
+                masks[split_metrics[i][0]][split_metrics[i][1]] = 1
 
-            print(split_layer_units)
             network.set_param_values(init_param_value)
             if split_param_size != 0:
-                split_network = MLP_SplitAct(
+                split_network = MLP_MaskedSplit(
                         input_shape=(in_dim+len(difficulties)+1,),
                         output_dim=out_dim,
                         hidden_sizes=hidden_size,
                         hidden_nonlinearity=NL.tanh,
                         output_nonlinearity=None,
                         split_num=len(difficulties)+1,
-                        split_units=split_layer_units,
+                        split_masks=masks,
                         init_net=network,
                     )
             else:
@@ -340,7 +308,7 @@ if __name__ == '__main__':
             for rep in range(int(reps)):
                 split_network.set_param_values(split_init_param)
 
-                Xs, Ys = synthesize_data(dim, 2000, tasks, split_param_size != 0, seed=seed)
+                Xs, Ys = synthesize_data(dim, 2000, tasks, split_param_size != 0, seed = seed)
                 losses = train(train_fn_split, np.concatenate(Xs), np.concatenate(Ys), test_epochs, batch = 32, shuffle=True)
 
                 #testXs, testYs = synthesize_data(dim, 10000, tasks, split_param_size != 0)
@@ -351,32 +319,23 @@ if __name__ == '__main__':
             pred_list.append(avg_error / reps)
             print(split_percentage, avg_error / reps)
             avg_learning_curve = np.mean(avg_learning_curve, axis=0)
-            if not individual_test:
-                learning_curves[split_id].append(avg_learning_curve)
+            learning_curves[split_id].append(avg_learning_curve)
         performances.append(pred_list)
-
-
-    if individual_test:
-        plt.figure()
-        average_metric_list = np.mean(average_metric_list, axis=0)
-        plt.plot(average_metric_list[:,0], -average_metric_list[:, 1])
-        plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/metric_rank.png')
 
     np.savetxt('data/trained/gradient_temp/supervised_split_' + append + '/performance.txt', performances)
     plt.figure()
     plt.plot(split_percentages, np.mean(performances, axis=0))
     plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/split_performance.png')
 
-    if not individual_test:
-        avg_learning_curve = []
-        for i in range(len(learning_curves)):
-            avg_learning_curve.append(np.mean(learning_curves[i], axis=0))
-        plt.figure()
-        for i in range(len(split_percentages)):
-            plt.plot(avg_learning_curve[i], label=str(split_percentages[i]))
-        plt.legend(bbox_to_anchor=(0.3, 0.3),
-        bbox_transform=plt.gcf().transFigure, numpoints=1)
-        plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/split_learning_curves.png')
+    avg_learning_curve = []
+    for i in range(len(learning_curves)):
+        avg_learning_curve.append(np.mean(learning_curves[i], axis=0))
+    plt.figure()
+    for i in range(len(split_percentages)):
+        plt.plot(avg_learning_curve[i], label=str(split_percentages[i]))
+    plt.legend(bbox_to_anchor=(0.3, 0.3),
+    bbox_transform=plt.gcf().transFigure, numpoints=1)
+    plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/split_learning_curves.png')
 
     plt.close('all')
 

@@ -1,8 +1,11 @@
 # encoding: utf-8
 
 import lasagne.layers as L
+import lasagne.nonlinearities as LN
 import lasagne
+import lasagne.init as LI
 import theano
+import theano as T
 import theano.tensor as TT
 import numpy as np
 
@@ -400,3 +403,50 @@ def batch_norm(layer, **kwargs):
     if nonlinearity is not None:
         layer = L.NonlinearityLayer(layer, nonlinearity)
     return layer
+
+class MaskedDenseLayer(L.Layer):
+    def __init__(self, incoming, num_units, W_init, b_init, W=LI.GlorotUniform(), split_num=1, split_mask_W=None, split_mask_b=None,
+                 b=LI.Constant(0.), nonlinearity=LN.rectify,
+                 **kwargs):
+        super(MaskedDenseLayer, self).__init__(incoming, **kwargs)
+        self.nonlinearity = (LN.identity if nonlinearity is None
+                             else nonlinearity)
+
+        self.num_units = num_units
+
+        num_inputs = int(np.prod(self.input_shape[1:]))-split_num
+
+        self.Ws = []
+        self.bs = []
+        for i in range(split_num):
+            self.Ws.append(self.add_param(W, (num_inputs, num_units), name="W%d"%(i)))
+            if W_init is not None:
+                self.get_params()[-1].set_value(W_init)
+            self.bs.append(self.add_param(b, (num_units,), name="b%d"%(i),
+                                    regularizable=False))
+            if b_init is not None:
+                self.get_params()[-1].set_value(b_init)
+        self.split_mask_W = split_mask_W
+        self.share_mask_W = np.ones((num_inputs, num_units)) - split_mask_W
+        self.split_mask_b = split_mask_b
+        self.share_mask_b = np.ones((num_units,)) - split_mask_b
+
+        self.input_size = num_inputs
+        self.split_num = split_num
+
+    def get_output_shape_for(self, input_shape):
+        return (input_shape[0], self.num_units)
+
+    def get_output_for(self, input, **kwargs):
+        if input.ndim > 2:
+            # if the input has more than two dimensions, flatten it into a
+            # batch of feature vectors.
+            input = input.flatten(2)
+
+        activation = T.dot(input[:, 0:-self.split_num], self.Ws[0]*self.share_mask_W)
+        activation = activation + (self.bs[0]* self.share_mask_b).dimshuffle('x', 0)
+        for i in range(len(self.Ws)):
+            activation_mask = TT.stack([input[:, -self.split_num+i]]*self.num_units).T
+            activation += (T.dot(input[:, 0:-self.split_num], self.Ws[i]*self.split_mask_W) + (self.bs[i]* self.split_mask_b).dimshuffle('x', 0)) * activation_mask
+
+        return self.nonlinearity(activation)
