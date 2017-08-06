@@ -66,9 +66,9 @@ if __name__ == '__main__':
     random_split = False
     prioritized_split = False
 
-    initialize_epochs = 100
-    grad_epochs = 20
-    test_epochs = 100
+    initialize_epochs = 1
+    grad_epochs = 1
+    test_epochs = 200
     append = 'hopper_edgewise_bidirection_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     reps = 1
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     load_split_data = False
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.1, 0.3, 1.0]
+    split_percentages = [0.0, 0.5, 1.0]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -250,10 +250,10 @@ if __name__ == '__main__':
         for split_id, split_percentage in enumerate(split_percentages):
             split_param_size = split_percentage * total_param_size
             masks = []
-            for k in range(len(task_grads[0][0])):
+            for k in range(len(task_grads[0][0])-1):
                 masks.append(np.zeros(split_counts[k].shape))
 
-            for i in range(split_param_size):
+            for i in range(int(split_param_size)):
                 masks[split_metrics[i][0]][split_metrics[i][1]] = 1
 
             policy.set_param_values(init_param_value)
@@ -276,7 +276,7 @@ if __name__ == '__main__':
                     #append_dim=2,
                     net_mode=8,
                     split_num=2,
-                    split_units=masks,
+                    split_masks=masks,
                     split_init_net=policy,
                 )
             else:
@@ -315,7 +315,9 @@ if __name__ == '__main__':
                     opt_data = split_algo.optimize_policy(0, samples_data)
                     reward = float((dict(logger._tabular)['AverageReturn']))
                     learning_curve.append(reward)
+                    print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)
+                joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
 
                 avg_error += float(reward)
             pred_list.append(avg_error / reps)
