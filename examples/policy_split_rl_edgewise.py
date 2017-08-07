@@ -24,6 +24,8 @@ import theano
 import joblib
 from rllab.misc.ext import iterate_minibatches_generic
 import copy
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 from rllab.misc import ext
@@ -55,7 +57,7 @@ def get_gradient(algo, samples_data):
 
 if __name__ == '__main__':
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
-    hidden_size = (64,32)
+    hidden_size = (100,50,25)
     batch_size = 10000
     dartenv = env._wrapped_env.env.env
     if env._wrapped_env.monitoring:
@@ -66,10 +68,10 @@ if __name__ == '__main__':
     random_split = False
     prioritized_split = False
 
-    initialize_epochs = 1
-    grad_epochs = 1
+    initialize_epochs = 200
+    grad_epochs = 20
     test_epochs = 200
-    append = 'hopper_edgewise_bidirection_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    append = 'hopper_edgewise_mass01_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     reps = 1
     if random_split:
@@ -77,11 +79,11 @@ if __name__ == '__main__':
         if prioritized_split:
             append += '_prio'
 
-    load_init_policy = False
-    load_split_data = False
+    load_init_policy = True
+    load_split_data = True
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.5, 1.0]
+    split_percentages = [0.05, 0.15, 1.0]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -317,7 +319,7 @@ if __name__ == '__main__':
                     learning_curve.append(reward)
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)
-                joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
+                joblib.dump(split_policy, 'data/trained/gradient_temp/rl_split_' + append + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
 
                 avg_error += float(reward)
             pred_list.append(avg_error / reps)
