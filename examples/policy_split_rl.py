@@ -65,18 +65,23 @@ if __name__ == '__main__':
 
     random_split = False
     prioritized_split = False
-    append = 'hopper_0802_sd3_10k_300_30_200_unweighted'
-    reps = 3
+
+    initialize_epochs = 1
+    grad_epochs = 10
+    test_epochs = 200
+    append = 'hopper_0901_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+
+    reps = 1
     if random_split:
         append += '_rand'
         if prioritized_split:
             append += '_prio'
-    initialize_epochs = 300
-    grad_epochs = 30
-    test_epochs = 200
+
+    load_init_policy = False
+    load_split_data = False
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.01, 0.05, 0.1, 0.3]
+    split_percentages = [0.0, 0.5, 1.0]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -103,7 +108,8 @@ if __name__ == '__main__':
         )
         baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
-        #policy = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl')
+        if load_init_policy:
+            policy = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl')
 
         algo = TRPO(
             env=env,
@@ -122,13 +128,14 @@ if __name__ == '__main__':
         parallel_sampler.initialize(n_parallel=n_parallel)
         algo.start_worker()
 
-        for i in range(initialize_epochs):
-            paths = algo.sampler.obtain_samples(0)
-            # if not split
-            samples_data = algo.sampler.process_samples(0, paths)
-            opt_data = algo.optimize_policy(0, samples_data)
-            print(dict(logger._tabular)['AverageReturn'])
-        joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl', compress=True)
+        if not load_init_policy:
+            for i in range(initialize_epochs):
+                paths = algo.sampler.obtain_samples(0)
+                # if not split
+                samples_data = algo.sampler.process_samples(0, paths)
+                opt_data = algo.optimize_policy(0, samples_data)
+                print(dict(logger._tabular)['AverageReturn'])
+            joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/init_policy.pkl', compress=True)
 
         print('------- initial training complete ---------------')
 
@@ -137,24 +144,36 @@ if __name__ == '__main__':
         task_grads = []
         for i in range(2):
             task_grads.append([])
-        net_weights = []
+
+        if not load_split_data:
+            split_data = []
+            net_weights = []
+            for i in range(grad_epochs):
+                cur_param_val = np.copy(policy.get_param_values())
+                cur_param = copy.deepcopy(policy.get_params())
+
+                cp = []
+                for param in policy._mean_network.get_params():
+                    cp.append(np.copy(param.get_value()))
+                net_weights.append(cp)
+
+                paths = algo.sampler.obtain_samples(0)
+                split_data.append(paths)
+
+                algo.sampler.process_samples(0, paths)
+                samples_data = algo.sampler.process_samples(0, paths)
+                opt_data = algo.optimize_policy(0, samples_data)
+            joblib.dump(split_data, 'data/trained/gradient_temp/rl_split_' + append + '/split_data.pkl', compress=True)
+            joblib.dump(net_weights, 'data/trained/gradient_temp/rl_split_' + append + '/net_weights.pkl', compress=True)
+        else:
+            split_data = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/split_data.pkl')
+            net_weights = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/net_weights.pkl')
+
         for i in range(grad_epochs):
-            cur_param_val = np.copy(policy.get_param_values())
-            cur_param = copy.deepcopy(policy.get_params())
-
-            cp = []
-            for param in policy._mean_network.get_params():
-                cp.append(np.copy(param.get_value()))
-            net_weights.append(cp)
-
-            paths = algo.sampler.obtain_samples(0)
             # if not split
             task_paths = [[], []]
-            for path in paths:
-                taskid = 0
-                print(path['env_infos']['model_parameters'][-1][0])
-                if path['env_infos']['model_parameters'][-1][0] > 0.5:
-                    taskid = 1
+            for path in split_data[i]:
+                taskid = path['env_infos']['state_index'][-1]
                 task_paths[taskid].append(path)
 
             for j in range(2):
@@ -163,9 +182,6 @@ if __name__ == '__main__':
                 grad = get_gradient(algo, samples_data)
                 task_grads[j].append(grad)
 
-            algo.sampler.process_samples(0, paths)
-            samples_data = algo.sampler.process_samples(0, paths)
-            opt_data = algo.optimize_policy(0, samples_data)
         print('------- collected gradient info -------------')
 
         split_counts = []
@@ -252,7 +268,7 @@ if __name__ == '__main__':
                     split_layer_units[0][0] += 1
                     split_layer_units[0][1] = 0
 
-            print(split_layer_units)
+            print('split_layer_units ', split_layer_units)
             policy.set_param_values(init_param_value)
             if split_param_size != 0:
                 if dartenv.avg_div != 2:
@@ -312,7 +328,9 @@ if __name__ == '__main__':
                     opt_data = split_algo.optimize_policy(0, samples_data)
                     reward = float((dict(logger._tabular)['AverageReturn']))
                     learning_curve.append(reward)
+                    print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)
+                joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
 
                 avg_error += float(reward)
             pred_list.append(avg_error / reps)
