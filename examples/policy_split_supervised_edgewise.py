@@ -93,6 +93,7 @@ def synthesize_data(dim, size, tasks, split = False, seed = None):
         for _ in range(int(per_task_size[i])):
             input = np.random.uniform(-10, 10, dim)
             input = np.concatenate([input, [i*1.0/(len(tasks)-1)]])
+
             if split:
                 split_vec = [0] * len(tasks)
                 split_vec[i] = 1
@@ -121,19 +122,19 @@ def test(out_fn, X, Y):
     return np.mean((pred-Y)**2)
 
 if __name__ == '__main__':
-    dim = 6
+    dim = 26
     in_dim = dim+1
     out_dim = dim
-    difficulties = [5, 5, 5]
+    difficulties = [16, 16, 16]
     random_split = False
     prioritized_split = False
-    append = 'edgewise_'+str(difficulties)
+    append = 'edgewise_'+str(dim)+':'+str(difficulties)
     reps = 1
     if random_split:
         append += '_rand'
         if prioritized_split:
             append += '_prio'
-    init_epochs = 50
+    init_epochs = 250
     epochs = 40
     test_epochs = 200
     hidden_size = (32,16)

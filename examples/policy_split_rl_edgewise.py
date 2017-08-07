@@ -310,6 +310,11 @@ if __name__ == '__main__':
                 learning_curve = []
                 for i in range(test_epochs):
                     paths = split_algo.sampler.obtain_samples(0)
+                    task_rewards = [[], []]
+                    for path in paths:
+                        taskid = path['env_infos']['state_index'][-1]
+                        task_rewards[taskid].append(np.sum(path["rewards"]))
+                    print('rewards for different tasks: ', np.mean(np.array(task_rewards[0])), np.mean(np.array(task_rewards[1])))
                     # if not split
                     samples_data = split_algo.sampler.process_samples(0, paths)
                     opt_data = split_algo.optimize_policy(0, samples_data)
@@ -317,7 +322,7 @@ if __name__ == '__main__':
                     learning_curve.append(reward)
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)
-                joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
+                joblib.dump(split_policy, 'data/trained/gradient_temp/rl_split_' + append + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
 
                 avg_error += float(reward)
             pred_list.append(avg_error / reps)
