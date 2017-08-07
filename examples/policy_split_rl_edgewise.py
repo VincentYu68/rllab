@@ -71,6 +71,8 @@ if __name__ == '__main__':
     test_epochs = 200
     append = 'hopper_edgewise_bidirection_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
+    task_size = 2
+
     reps = 1
     if random_split:
         append += '_rand'
@@ -141,7 +143,7 @@ if __name__ == '__main__':
         init_param_value = np.copy(policy.get_param_values())
 
         task_grads = []
-        for i in range(2):
+        for i in range(task_size):
             task_grads.append([])
 
         if not load_split_data:
@@ -170,13 +172,15 @@ if __name__ == '__main__':
 
         for i in range(grad_epochs):
             # if not split
-            task_paths = [[], []]
+            task_paths = []
+            for j in range(task_size):
+                task_paths.append([])
             for path in split_data[i]:
                 taskid = 0
                 taskid = path['env_infos']['state_index'][-1]
                 task_paths[taskid].append(path)
 
-            for j in range(2):
+            for j in range(task_size):
                 algo.sampler.process_samples(0, task_paths[j])
                 samples_data = algo.sampler.process_samples(0, task_paths[j])
                 grad = get_gradient(algo, samples_data)
@@ -258,8 +262,8 @@ if __name__ == '__main__':
 
             policy.set_param_values(init_param_value)
             if split_param_size != 0:
-                if dartenv.avg_div != 2:
-                    dartenv.avg_div = 2
+                if dartenv.avg_div != task_size:
+                    dartenv.avg_div = task_size
                     dartenv.obs_dim += dartenv.avg_div
                     high = np.inf*np.ones(dartenv.obs_dim)
                     low = -high
@@ -275,7 +279,7 @@ if __name__ == '__main__':
                     hidden_sizes=hidden_size,
                     #append_dim=2,
                     net_mode=8,
-                    split_num=2,
+                    split_num=task_size,
                     split_masks=masks,
                     split_init_net=policy,
                 )
