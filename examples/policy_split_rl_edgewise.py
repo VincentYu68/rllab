@@ -57,15 +57,14 @@ def get_gradient(algo, samples_data):
 
 if __name__ == '__main__':
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
-
-    hidden_size = (100,50,25)
-    batch_size = 40000
-
     dartenv = env._wrapped_env.env.env
     if env._wrapped_env.monitoring:
         dartenv = dartenv.env
     dartenv.avg_div = 0
     dartenv.split_task_test = True
+
+    hidden_size = (100,50,25)
+    batch_size = 40000
 
     random_split = False
     prioritized_split = False
@@ -77,22 +76,22 @@ if __name__ == '__main__':
 
     task_size = 2
 
-    reps = 3
+    reps = 1
     if random_split:
         append += '_rand'
         if prioritized_split:
             append += '_prio'
 
-    load_init_policy = True
-    load_split_data = True
+    load_init_policy = False
+    load_split_data = False
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.15, 0.3]
+    split_percentages = [0.0, 0.15]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
 
-    test_num = 1
+    test_num = 2
     performances = []
 
     if not os.path.exists('data/trained/gradient_temp/rl_split_' + append):
@@ -104,6 +103,13 @@ if __name__ == '__main__':
 
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
+        env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
+        dartenv = env._wrapped_env.env.env
+        if env._wrapped_env.monitoring:
+            dartenv = dartenv.env
+        dartenv.avg_div = 0
+        dartenv.split_task_test = True
+
         np.random.seed(testit*3+4)
 
         policy = GaussianMLPPolicy(
@@ -123,7 +129,7 @@ if __name__ == '__main__':
             policy=policy,
             baseline=baseline,
             batch_size=batch_size,
-            max_path_length=500,
+            max_path_length=1000,
             n_itr=5,
 
             discount=0.995,
@@ -132,7 +138,7 @@ if __name__ == '__main__':
         )
         algo.init_opt()
         from rllab.sampler import parallel_sampler
-        parallel_sampler.initialize(n_parallel=2)
+        parallel_sampler.initialize(n_parallel=7)
         algo.start_worker()
 
         if not load_init_policy:
@@ -299,7 +305,7 @@ if __name__ == '__main__':
                 policy=split_policy,
                 baseline=split_baseline,
                 batch_size=batch_size,
-                max_path_length=500,
+                max_path_length=1000,
                 n_itr=5,
 
                 discount=0.995,
@@ -308,7 +314,7 @@ if __name__ == '__main__':
             )
             split_algo.init_opt()
 
-            parallel_sampler.initialize(n_parallel=2)
+            parallel_sampler.initialize(n_parallel=7)
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
