@@ -13,29 +13,19 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopperBackpack-v1", record_log=False, record_video=False))
-<<<<<<< HEAD
-=======
-
-    mp_dim = 0
-    #policy_pre = joblib.load('data/local/experiment/hopper_restfoot_seed6_cont_cont/policy.pkl')
-    split_dim = 2
->>>>>>> 575a5610b48f1dc8693e8d3cd9c55cb1cb9e7f0f
+    env = normalize(GymEnv("DartCartPoleSwingUp-v1", record_log=False, record_video=False))
 
     mp_dim = 1
-    policy_pre = joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/policy_cont.pkl')
+    #policy_pre = joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/policy_cont.pkl')
     split_dim = 3
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64, 32),
+        hidden_sizes=(64, 64),
         #append_dim=2,
-<<<<<<< HEAD
-        net_mode=6,
-=======
+
         net_mode=0,
->>>>>>> 575a5610b48f1dc8693e8d3cd9c55cb1cb9e7f0f
 
         mp_dim=mp_dim,
         mp_sel_hid_dim=12,
@@ -44,23 +34,15 @@ def run_task(*_):
         learn_segment = False,
         split_layer=[2],
         split_num=split_dim,
-<<<<<<< HEAD
-        split_units=joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/split_scheme_backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start_orth_0.5.pkl'),
-        split_init_net=policy_pre,
-=======
->>>>>>> 575a5610b48f1dc8693e8d3cd9c55cb1cb9e7f0f
+        #split_units=joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/split_scheme_backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start_orth_0.5.pkl'),
+        #split_init_net=policy_pre,
     )
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
     '''policy = CategoricalMLPPolicy(
         env_spec=env.spec,
         hidden_sizes=(64, 64),
     )'''
-<<<<<<< HEAD
-    #policy = joblib.load('data/trained/policy_2d_restfoot_sd6_perturb_001_1500.pkl')
-=======
 
-    policy = joblib.load('data/trained/policy_mass60_sd3_gradsplit_1500.pkl')
->>>>>>> 575a5610b48f1dc8693e8d3cd9c55cb1cb9e7f0f
     '''policy_prev = joblib.load('data/trained/policy_2d_footstrength_sd4_1000.pkl')
 
 
@@ -78,12 +60,7 @@ def run_task(*_):
     '''
 
     baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=split_dim*0)
-<<<<<<< HEAD
-    #baseline = GaussianMLPBaseline(env_spec=env.spec, regressor_args={'hidden_sizes':(128,32)}) 
 
-=======
-    
->>>>>>> 575a5610b48f1dc8693e8d3cd9c55cb1cb9e7f0f
     #policy = params['policy']
     #baseline = params['baseline']
 
@@ -91,16 +68,10 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-<<<<<<< HEAD
-        batch_size=75000,
-        max_path_length=env.horizon,
-        n_itr=250,
 
-=======
-        batch_size=50000,
+        batch_size=10000,
         max_path_length=env.horizon,
         n_itr=100,
->>>>>>> 575a5610b48f1dc8693e8d3cd9c55cb1cb9e7f0f
 
         discount=0.995,
         step_size=0.01,
@@ -117,18 +88,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=8,
+    n_parallel=2,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-<<<<<<< HEAD
     seed=7,
-    exp_name='hopper_backpack_slope_sd7_gradsplit5_1200start_unweighted_vanillagrad_1500',
-=======
-    seed=11,
-    exp_name='hopper_backpack_sd11',
->>>>>>> 575a5610b48f1dc8693e8d3cd9c55cb1cb9e7f0f
+    exp_name='cartpole_swingup_sd7_vanilla',
 
     # plot=True,
 )

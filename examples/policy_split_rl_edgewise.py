@@ -57,8 +57,10 @@ def get_gradient(algo, samples_data):
 
 if __name__ == '__main__':
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
-    hidden_size = (64,64)
-    batch_size = 10000
+
+    hidden_size = (100,50,25)
+    batch_size = 40000
+
     dartenv = env._wrapped_env.env.env
     if env._wrapped_env.monitoring:
         dartenv = dartenv.env
@@ -68,10 +70,10 @@ if __name__ == '__main__':
     random_split = False
     prioritized_split = False
 
-    initialize_epochs = 10
-    grad_epochs = 5
-    test_epochs = 70
-    append = 'cartpole_inputseg_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    initialize_epochs = 250
+    grad_epochs = 30
+    test_epochs = 300
+    append = 'hopper_torsoanklelimit_edgewise_sd4_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     task_size = 2
 
@@ -81,8 +83,8 @@ if __name__ == '__main__':
         if prioritized_split:
             append += '_prio'
 
-    load_init_policy = False
-    load_split_data = False
+    load_init_policy = True
+    load_split_data = True
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
     split_percentages = [0.0, 0.15, 0.3]
@@ -98,9 +100,11 @@ if __name__ == '__main__':
 
     average_metric_list = []
 
+
+
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
-        np.random.seed(testit*3)
+        np.random.seed(testit*3+4)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
