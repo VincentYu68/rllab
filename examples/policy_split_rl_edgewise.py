@@ -55,8 +55,8 @@ def get_gradient(algo, samples_data):
 
 if __name__ == '__main__':
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
-    hidden_size = (64,32)
-    batch_size = 10000
+    hidden_size = (100,50,25)
+    batch_size = 40000
     dartenv = env._wrapped_env.env.env
     if env._wrapped_env.monitoring:
         dartenv = dartenv.env
@@ -66,10 +66,10 @@ if __name__ == '__main__':
     random_split = False
     prioritized_split = False
 
-    initialize_epochs = 1
-    grad_epochs = 1
-    test_epochs = 200
-    append = 'hopper_edgewise_bidirection_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    initialize_epochs = 250
+    grad_epochs = 30
+    test_epochs = 300
+    append = 'hopper_torsoanklelimit_edgewise_sd4_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     reps = 1
     if random_split:
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     load_split_data = False
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.5, 1.0]
+    split_percentages = [0.0, 0.15, 0.3]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -94,9 +94,11 @@ if __name__ == '__main__':
 
     average_metric_list = []
 
+
+
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
-        np.random.seed(testit*3)
+        np.random.seed(testit*3+4)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -317,7 +319,7 @@ if __name__ == '__main__':
                     learning_curve.append(reward)
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)
-                joblib.dump(policy, 'data/trained/gradient_temp/rl_split_' + append + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
+                joblib.dump(split_policy, 'data/trained/gradient_temp/rl_split_' + append + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
 
                 avg_error += float(reward)
             pred_list.append(avg_error / reps)
