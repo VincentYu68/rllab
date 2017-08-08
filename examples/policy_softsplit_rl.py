@@ -24,6 +24,8 @@ import theano
 import joblib
 from rllab.misc.ext import iterate_minibatches_generic
 import copy
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import os
 from rllab.misc import ext
@@ -97,7 +99,7 @@ if __name__ == '__main__':
 
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
-        np.random.seed(testit*3)
+        np.random.seed(testit*3+2)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -125,7 +127,7 @@ if __name__ == '__main__':
         )
         algo.init_opt()
         from rllab.sampler import parallel_sampler
-        parallel_sampler.initialize(n_parallel=4)
+        parallel_sampler.initialize(n_parallel=8)
         algo.start_worker()
 
         if not load_init_policy:
@@ -278,7 +280,7 @@ if __name__ == '__main__':
                     n_itr=5,
 
                     discount=0.995,
-                    step_size=0.01,
+                    step_size=0.02,
                     gae_lambda=0.97,
                     split_weight=split_percentage,
                     split_importance = split_counts,
@@ -298,7 +300,7 @@ if __name__ == '__main__':
                 )
             split_algo.init_opt()
 
-            parallel_sampler.initialize(n_parallel=4)
+            parallel_sampler.initialize(n_parallel=8)
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
