@@ -125,20 +125,21 @@ if __name__ == '__main__':
     dim = 26
     in_dim = dim+1
     out_dim = dim
-    difficulties = [16, 16, 16]
+    difficulties = [6, 6, 6]
     random_split = False
     prioritized_split = False
-    append = 'edgewise_'+str(dim)+':'+str(difficulties)
+    append = 'edgewise_metricpercent_'+str(dim)+':'+str(difficulties)
     reps = 1
     if random_split:
         append += '_rand'
         if prioritized_split:
             append += '_prio'
-    init_epochs = 250
+    init_epochs = 100
+    batch_size = 2000
     epochs = 40
     test_epochs = 200
-    hidden_size = (32,16)
-    append += str(init_epochs) + '_' + str(epochs) + '_' + str(test_epochs)+'_' + str(hidden_size)
+    hidden_size = (64,64)
+    append += str(batch_size) + ':_' + str(init_epochs) + '_' + str(epochs) + '_' + str(test_epochs)+'_' + str(hidden_size)
 
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
@@ -183,7 +184,7 @@ if __name__ == '__main__':
         loss_fn = T.function([network.input_layer.input_var, out_var], loss, allow_input_downcast=True)
         out = T.function([network.input_layer.input_var], prediction, allow_input_downcast=True)
 
-        Xs, Ys = synthesize_data(dim, 2000, tasks, seed = seed)
+        Xs, Ys = synthesize_data(dim, batch_size, tasks, seed = seed)
         train(train_fn, np.concatenate(Xs), np.concatenate(Ys), init_epochs)
         print('------- initial training complete ---------------')
 
@@ -270,8 +271,18 @@ if __name__ == '__main__':
             for k in range(len(task_grads[0][0])):
                 masks.append(np.zeros(split_counts[k].shape))
 
-            for i in range(split_param_size):
-                masks[split_metrics[i][0]][split_metrics[i][1]] = 1
+            '''for i in range(split_param_size):
+                masks[split_metrics[i][0]][split_metrics[i][1]] = 1'''
+            threshold = split_metrics[0][2] - split_percentage * (split_metrics[0][2] - split_metrics[-1][2])
+            print('threashold,' ,threshold)
+            size= 0
+            for i in range(len(split_metrics)):
+                if split_metrics[i][2] < threshold:
+                    break
+                else:
+                    masks[split_metrics[i][0]][split_metrics[i][1]] = 1
+                    size += 1
+            print('split size: ', size)
 
             network.set_param_values(init_param_value)
             if split_param_size != 0:
@@ -294,7 +305,7 @@ if __name__ == '__main__':
             loss_split = lasagne.objectives.squared_error(prediction, out_var)
             loss_split = loss_split.mean()
             params_split = split_network.get_params(trainable=True)
-            updates_split = lasagne.updates.sgd(loss_split, params_split, learning_rate=0.002)
+            updates_split = lasagne.updates.adam(loss_split, params_split, learning_rate=0.002)
             train_fn_split = T.function([split_network.input_layer.input_var, out_var], loss_split, updates=updates_split, allow_input_downcast=True)
             out = T.function([split_network.input_layer.input_var], prediction, allow_input_downcast=True)
             gradsplit = T.grad(loss_split, params_split, disconnected_inputs='warn')
@@ -309,7 +320,7 @@ if __name__ == '__main__':
             for rep in range(int(reps)):
                 split_network.set_param_values(split_init_param)
 
-                Xs, Ys = synthesize_data(dim, 2000, tasks, split_param_size != 0, seed = seed)
+                Xs, Ys = synthesize_data(dim, batch_size, tasks, split_param_size != 0, seed = seed)
                 losses = train(train_fn_split, np.concatenate(Xs), np.concatenate(Ys), test_epochs, batch = 32, shuffle=True)
 
                 #testXs, testYs = synthesize_data(dim, 10000, tasks, split_param_size != 0)

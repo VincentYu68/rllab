@@ -217,7 +217,7 @@ def sample_paths(
         for path in result:
             mp_rew_raw.append([np.array(path['env_infos']['model_parameters'][-1]), path['rewards'].sum()])
         mp_rew_raw.sort(key=lambda x: str(x[0]))
-        print(mp_rew_raw)
+        #print(mp_rew_raw)
         mp_rew = []
         i = 0
         while True:

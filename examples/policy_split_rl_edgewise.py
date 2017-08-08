@@ -24,6 +24,8 @@ import theano
 import joblib
 from rllab.misc.ext import iterate_minibatches_generic
 import copy
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 from rllab.misc import ext
@@ -55,7 +57,7 @@ def get_gradient(algo, samples_data):
 
 if __name__ == '__main__':
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
-    hidden_size = (64,32)
+    hidden_size = (64,64)
     batch_size = 10000
     dartenv = env._wrapped_env.env.env
     if env._wrapped_env.monitoring:
@@ -66,14 +68,14 @@ if __name__ == '__main__':
     random_split = False
     prioritized_split = False
 
-    initialize_epochs = 1
-    grad_epochs = 1
-    test_epochs = 200
-    append = 'hopper_edgewise_bidirection_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    initialize_epochs = 10
+    grad_epochs = 5
+    test_epochs = 70
+    append = 'cartpole_inputseg_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     task_size = 2
 
-    reps = 1
+    reps = 3
     if random_split:
         append += '_rand'
         if prioritized_split:
@@ -83,7 +85,7 @@ if __name__ == '__main__':
     load_split_data = False
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.5, 1.0]
+    split_percentages = [0.0, 0.15, 0.3]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -126,7 +128,7 @@ if __name__ == '__main__':
         )
         algo.init_opt()
         from rllab.sampler import parallel_sampler
-        parallel_sampler.initialize(n_parallel=4)
+        parallel_sampler.initialize(n_parallel=2)
         algo.start_worker()
 
         if not load_init_policy:
@@ -273,6 +275,7 @@ if __name__ == '__main__':
                             observation_space=env.observation_space,
                             action_space=env.action_space,
                         )
+                print(masks[0].shape)
                 split_policy = GaussianMLPPolicy(
                     env_spec=env.spec,
                     # The neural network policy should have two hidden layers, each with 32 hidden units.
@@ -301,7 +304,7 @@ if __name__ == '__main__':
             )
             split_algo.init_opt()
 
-            parallel_sampler.initialize(n_parallel=4)
+            parallel_sampler.initialize(n_parallel=2)
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
@@ -314,7 +317,9 @@ if __name__ == '__main__':
                 learning_curve = []
                 for i in range(test_epochs):
                     paths = split_algo.sampler.obtain_samples(0)
-                    task_rewards = [[], []]
+                    task_rewards = []
+                    for j in range(task_size):
+                        task_rewards.append([])
                     for path in paths:
                         taskid = path['env_infos']['state_index'][-1]
                         task_rewards[taskid].append(np.sum(path["rewards"]))
@@ -335,6 +340,16 @@ if __name__ == '__main__':
             print(avg_learning_curve)
             avg_learning_curve = np.mean(avg_learning_curve, axis=0)
             learning_curves[split_id].append(avg_learning_curve)
+            # output the learning curves so far
+            avg_learning_curve = []
+            for lc in range(len(learning_curves)):
+                avg_learning_curve.append(np.mean(learning_curves[lc], axis=0))
+            plt.figure()
+            for lc in range(len(learning_curves)):
+                plt.plot(avg_learning_curve[lc], label=str(split_percentages[lc]))
+            plt.legend(bbox_to_anchor=(0.3, 0.3),
+            bbox_transform=plt.gcf().transFigure, numpoints=1)
+            plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/split_learning_curves.png')
         performances.append(pred_list)
 
 
