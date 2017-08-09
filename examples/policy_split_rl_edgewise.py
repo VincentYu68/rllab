@@ -161,6 +161,7 @@ if __name__ == '__main__':
         if not load_split_data:
             split_data = []
             net_weights = []
+            net_weight_values = []
             for i in range(grad_epochs):
                 cur_param_val = np.copy(policy.get_param_values())
                 cur_param = copy.deepcopy(policy.get_params())
@@ -169,6 +170,7 @@ if __name__ == '__main__':
                 for param in policy._mean_network.get_params():
                     cp.append(np.copy(param.get_value()))
                 net_weights.append(cp)
+                net_weight_values.append(policy.get_param_values())
 
                 paths = algo.sampler.obtain_samples(0)
                 split_data.append(paths)
@@ -178,12 +180,14 @@ if __name__ == '__main__':
                 opt_data = algo.optimize_policy(0, samples_data)
             joblib.dump(split_data, 'data/trained/gradient_temp/rl_split_' + append + '/split_data.pkl', compress=True)
             joblib.dump(net_weights, 'data/trained/gradient_temp/rl_split_' + append + '/net_weights.pkl', compress=True)
+            joblib.dump(net_weight_values, 'data/trained/gradient_temp/rl_split_' + append + '/net_weight_values.pkl', compress=True)
         else:
             split_data = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/split_data.pkl')
             net_weights = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/net_weights.pkl')
+            net_weight_values = joblib.load('data/trained/gradient_temp/rl_split_' + append + '/net_weight_values.pkl')
 
         for i in range(grad_epochs):
-            # if not split
+            policy.set_param_values(net_weight_values[i])
             task_paths = []
             for j in range(task_size):
                 task_paths.append([])
@@ -231,30 +235,15 @@ if __name__ == '__main__':
 
         # organize the metric into each edges and sort them
         split_metrics = []
+        metrics_list = []
         for k in range(len(task_grads[0][0])-1):
             for index, value in np.ndenumerate(split_counts[k]):
                 split_metrics.append([k, index, value])
+                metrics_list.append(value)
         split_metrics.sort(key=lambda x:x[2], reverse=True)
 
         # test the effect of splitting
         total_param_size = len(policy._mean_network.get_param_values())
-
-        split_indices = []
-        metrics_lsit = []
-        ord = 0
-        for p in range(int(len(split_counts)/2)):
-            for col in range(split_counts[p*2].shape[1]):
-                split_metric = np.mean(split_counts[p*2][:, col]) + split_counts[p*2+1][col]
-                split_indices.append([[p, col], split_metric])
-                metrics_lsit.append([ord, split_metric])
-                ord+=1
-        split_indices.sort(key=lambda x:x[1], reverse=True)
-
-        metrics_lsit = np.array(metrics_lsit)
-        plt.figure()
-        plt.plot(metrics_lsit[:,0], metrics_lsit[:, 1])
-        plt.savefig('data/trained/gradient_temp/rl_split_' + append + '/metric_rank.png')
-        average_metric_list.append(metrics_lsit)
 
         for i in range(int(len(split_counts))):
             split_counts[i] *= 0
@@ -269,8 +258,17 @@ if __name__ == '__main__':
             for k in range(len(task_grads[0][0])-1):
                 masks.append(np.zeros(split_counts[k].shape))
 
-            for i in range(int(split_param_size)):
-                masks[split_metrics[i][0]][split_metrics[i][1]] = 1
+            if split_percentage <= 1.0:
+                for i in range(int(split_param_size)):
+                    masks[split_metrics[i][0]][split_metrics[i][1]] = 1
+            else:
+                threshold = np.mean(metrics_list) + np.std(metrics_list)
+                print('threashold,', threshold)
+                for i in range(len(split_metrics)):
+                    if split_metrics[i][2] < threshold:
+                        break
+                    else:
+                        masks[split_metrics[i][0]][split_metrics[i][1]] = 1
 
             policy.set_param_values(init_param_value)
             if split_param_size != 0:
