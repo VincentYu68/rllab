@@ -72,7 +72,7 @@ if __name__ == '__main__':
     initialize_epochs = 250
     grad_epochs = 30
     test_epochs = 300
-    append = 'hopper_torsoanklelimit_edgewise_sd4_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    append = 'hopper_torsolimit_edgewise_sd4_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     task_size = 2
 
@@ -86,12 +86,12 @@ if __name__ == '__main__':
     load_split_data = False
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.15]
+    split_percentages = [0.0, 0.15, 0.3, 2.0]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
 
-    test_num = 2
+    test_num = 1
     performances = []
 
     if not os.path.exists('data/trained/gradient_temp/rl_split_' + append):

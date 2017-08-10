@@ -4,7 +4,7 @@ import time
 
 
 def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
-            always_return_paths=False, resample_mp = None):
+            always_return_paths=False, resample_mp = None, target_task = None):
     observations = []
     actions = []
     rewards = []
@@ -16,11 +16,15 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
     if animated:
         env.render()
 
+    dartenv = env._wrapped_env.env.env
+    if env._wrapped_env.monitoring:
+        dartenv = dartenv.env
     if resample_mp is not None:
-        dartenv = env._wrapped_env.env.env
-        if env._wrapped_env.monitoring:
-            dartenv = dartenv.env
         dartenv.param_manager.set_simulator_parameters(resample_mp)
+
+    if target_task is not None:
+        while dartenv.state_index != target_task:
+            o = env.reset()
 
     while path_length < max_path_length:
         a, agent_info = agent.get_action(o)

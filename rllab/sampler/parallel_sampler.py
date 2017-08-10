@@ -115,6 +115,18 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
                 sampled_paths.append(path)
                 sample_num += len(path["rewards"])
             return sampled_paths, sample_num
+        else:
+            dartenv.reset()
+            target_task = dartenv.state_index
+            sample_num = 0
+            sampled_paths = []
+            while sample_num <= G.env.horizon * 0.9:
+                path = rollout(G.env, G.policy, max_path_length,
+                               resample_mp=None, target_task = target_task)
+                sampled_paths.append(path)
+                sample_num += len(path["rewards"])
+            return sampled_paths, sample_num
+
 
     if G.ensemble_dynamics['use_ens_dyn']:
         dartenv.dyn_models = G.ensemble_dynamics['dyn_models']
