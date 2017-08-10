@@ -331,7 +331,10 @@ if __name__ == '__main__':
                     for path in paths:
                         taskid = path['env_infos']['state_index'][-1]
                         task_rewards[taskid].append(np.sum(path["rewards"]))
-                    print('rewards for different tasks: ', np.mean(np.array(task_rewards[0])), np.mean(np.array(task_rewards[1])))
+                    avg_rewards = []
+                    for j in range(task_size):
+                        avg_rewards.append(np.mean(np.array(task_rewards[j])))
+                    print('rewards for different tasks: ', avg_rewards)
                     # if not split
                     samples_data = split_algo.sampler.process_samples(0, paths)
                     opt_data = split_algo.optimize_policy(0, samples_data)

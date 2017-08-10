@@ -134,16 +134,16 @@ if __name__ == '__main__':
         append += '_rand'
         if prioritized_split:
             append += '_prio'
-    init_epochs = 100
+    init_epochs = 50
     batch_size = 2000
     epochs = 40
-    test_epochs = 200
-    hidden_size = (64,64)
+    test_epochs = 50
+    hidden_size = (64, 64)
     append += str(batch_size) + ':_' + str(init_epochs) + '_' + str(epochs) + '_' + str(test_epochs)+'_' + str(hidden_size)
 
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.05, 0.1, 0.3, 0.6, 1.0]
+    split_percentages = [0.0, 0.1, 0.2, 0.3, 0.6, 1.0, 2.0] # 2.0 means using mean + 1 std as the threshold
     test_num = 3
     performances = []
     learning_curves = []
@@ -176,7 +176,7 @@ if __name__ == '__main__':
         loss = lasagne.objectives.squared_error(prediction, out_var)
         loss = loss.mean()
         params = network.get_params(trainable=True)
-        updates = lasagne.updates.sgd(loss, params, learning_rate=0.002)
+        updates = lasagne.updates.adam(loss, params, learning_rate=0.002)
         train_fn = T.function([network.input_layer.input_var, out_var], loss, updates=updates, allow_input_downcast=True)
         ls = TT.mean((prediction - out_var)**2)
         grad = T.grad(ls, params, disconnected_inputs='warn')
@@ -194,27 +194,15 @@ if __name__ == '__main__':
         task_grads = []
         for i in range(len(Xs)):
             task_grads.append([])
-        net_weights = []
+        net_weight_values = []
         for i in range(epochs):
-            #network.set_param_values(init_param_value)
-
-            cur_param_val = np.copy(network.get_param_values())
-            cur_param = copy.deepcopy(network.get_params())
-
-            cp = []
-            for param in cur_param:
-                cp.append(np.copy(param.get_value()))
-            net_weights.append(cp)
-            for j in range(len(Xs)):
-                train(train_fn, Xs[j], Ys[j], 1)
-                new_param = network.get_params()
-                grad = []
-                for k in range(len(new_param)):
-                    grad.append(new_param[k].get_value() - cur_param[k].get_value())
-                task_grads[j].append(grad)
-                network.set_param_values(cur_param_val)
-
+            net_weight_values.append(network.get_param_values())
             train(train_fn, np.concatenate(Xs), np.concatenate(Ys), 1)
+        for i in range(epochs):
+            network.set_param_values(net_weight_values[i])
+            for j in range(len(Xs)):
+                grad = grad_fn(Xs[j], Ys[j])
+                task_grads[j].append(grad)
         print('------- collected gradient info -------------')
 
         testXs, testYs = synthesize_data(dim, 2000, tasks)
@@ -251,10 +239,13 @@ if __name__ == '__main__':
 
         # organize the metric into each edges and sort them
         split_metrics = []
+        metrics_list = []
         for k in range(len(task_grads[0][0])):
             for index, value in np.ndenumerate(split_counts[k]):
                 split_metrics.append([k, index, value])
+                metrics_list.append(value)
         split_metrics.sort(key=lambda x:x[2], reverse=True)
+        print('Metric statistics (min/max/mean/std): ', np.min(metrics_list), np.max(metrics_list), np.mean(metrics_list), np.std(metrics_list))
 
         # test the effect of splitting
         total_param_size = len(network.get_param_values())
@@ -271,18 +262,19 @@ if __name__ == '__main__':
             for k in range(len(task_grads[0][0])):
                 masks.append(np.zeros(split_counts[k].shape))
 
-            '''for i in range(split_param_size):
-                masks[split_metrics[i][0]][split_metrics[i][1]] = 1'''
-            threshold = split_metrics[0][2] - split_percentage * (split_metrics[0][2] - split_metrics[-1][2])
-            print('threashold,' ,threshold)
-            size= 0
-            for i in range(len(split_metrics)):
-                if split_metrics[i][2] < threshold:
-                    break
-                else:
+            if split_percentage < 1.0:
+                for i in range(split_param_size):
                     masks[split_metrics[i][0]][split_metrics[i][1]] = 1
-                    size += 1
-            print('split size: ', size)
+            else:
+                threshold = np.mean(metrics_list)# + np.std(metrics_list)
+                size= 0
+                for i in range(len(split_metrics)):
+                    if split_metrics[i][2] < threshold:
+                        break
+                    else:
+                        masks[split_metrics[i][0]][split_metrics[i][1]] = 1
+                        size += 1
+                print('split size: ', size)
 
             network.set_param_values(init_param_value)
             if split_param_size != 0:
@@ -332,6 +324,16 @@ if __name__ == '__main__':
             print(split_percentage, avg_error / reps)
             avg_learning_curve = np.mean(avg_learning_curve, axis=0)
             learning_curves[split_id].append(avg_learning_curve)
+
+            avg_learning_curve = []
+            for lc in range(len(learning_curves)):
+                avg_learning_curve.append(np.mean(learning_curves[lc], axis=0))
+            plt.figure()
+            for lc in range(len(split_percentages)):
+                plt.plot(avg_learning_curve[lc], label=str(split_percentages[lc]))
+            plt.legend(bbox_to_anchor=(0.3, 0.3),
+            bbox_transform=plt.gcf().transFigure, numpoints=1)
+            plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/split_learning_curves.png')
         performances.append(pred_list)
 
     np.savetxt('data/trained/gradient_temp/supervised_split_' + append + '/performance.txt', performances)
