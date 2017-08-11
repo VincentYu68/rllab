@@ -65,6 +65,7 @@ class SharedGlobal(object):
         self.ensemble_dynamics['training_buffer_y'] = []
         self.ensemble_dynamics['base_paths'] = []
         self.ensemble_dynamics['baseline'] = None
+        self.ensemble_dynamics['target_task'] = None
 
 class StatefulPool(object):
     def __init__(self):

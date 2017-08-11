@@ -127,6 +127,10 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
                 sample_num += len(path["rewards"])
             return sampled_paths, sample_num
 
+    if G.ensemble_dynamics['target_task'] is not None:
+        path = rollout(G.env, G.policy, max_path_length, resample_mp=None, target_task = G.ensemble_dynamics['target_task'])
+        return [path], len(path["rewards"])
+
 
     if G.ensemble_dynamics['use_ens_dyn']:
         dartenv.dyn_models = G.ensemble_dynamics['dyn_models']
@@ -166,7 +170,8 @@ def sample_paths(
         env = None,
         policy = None,
         baseline = None,
-        sim_percentage = 1.0/3.0):
+        sim_percentage = 1.0/3.0,
+        target_task = None):
     """
     :param policy_params: parameters for the policy. This will be updated on each worker process
     :param max_samples: desired maximum number of samples to be collected. The actual number of collected samples
@@ -187,6 +192,9 @@ def sample_paths(
             [(env_params, scope)] * singleton_pool.n_parallel
         )
 
+    if target_task is not None:
+        singleton_pool.run_each(_worker_update_dyn, [('target_task',
+                                                             target_task, scope)] * singleton_pool.n_parallel)
 
     if singleton_pool.G.ensemble_dynamics['use_ens_dyn'] and iter > 0:
         singleton_pool.run_each(_worker_update_dyn, [('dyn_model_choice',
