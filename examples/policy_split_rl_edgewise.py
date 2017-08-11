@@ -336,9 +336,26 @@ if __name__ == '__main__':
                         avg_rewards.append(np.mean(np.array(task_rewards[j])))
                     print('rewards for different tasks: ', avg_rewards)
                     # if not split
-                    samples_data = split_algo.sampler.process_samples(0, paths)
-                    opt_data = split_algo.optimize_policy(0, samples_data)
-                    reward = float((dict(logger._tabular)['AverageReturn']))
+                    if split_param_size == 0:
+                        samples_data = split_algo.sampler.process_samples(0, paths)
+                        opt_data = split_algo.optimize_policy(0, samples_data)
+                        reward = float((dict(logger._tabular)['AverageReturn']))
+                    else:
+                        reward = 0
+                        total_traj = 0
+                        param_pre_opt = np.copy(split_policy.get_param_values())
+                        accum_grad = param_pre_opt*0
+                        for j in range(task_size):
+                            split_policy.set_param_values(param_pre_opt)
+                            split_algo.sampler.process_samples(0, task_paths[j])
+                            samples_data = split_algo.sampler.process_samples(0, task_paths[j])
+                            opt_data = split_algo.optimize_policy(0, samples_data)
+                            reward += float((dict(logger._tabular)['AverageReturn'])) * float((dict(logger._tabular)['NumTrajs']))
+                            total_traj += float((dict(logger._tabular)['NumTrajs']))
+                            accum_grad += split_policy.get_param_values() - param_pre_opt
+                        param_post_opt = np.copy(param_pre_opt + accum_grad/task_size)
+                        split_policy.set_param_values(param_post_opt)
+                        reward /= total_traj
                     learning_curve.append(reward)
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)
