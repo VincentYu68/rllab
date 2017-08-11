@@ -298,6 +298,10 @@ if __name__ == '__main__':
                 split_policy = copy.deepcopy(policy)
 
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
+
+            new_batch_size = batch_size
+            if split_param_size != 0:
+                new_batch_size = int(batch_size / 2)
             split_algo = TRPO(
                 env=env,
                 policy=split_policy,
@@ -324,38 +328,26 @@ if __name__ == '__main__':
                 split_policy.set_param_values(split_init_param)
                 learning_curve = []
                 for i in range(test_epochs):
-                    paths = split_algo.sampler.obtain_samples(0)
-                    task_rewards = []
-                    for j in range(task_size):
-                        task_rewards.append([])
-                    for path in paths:
-                        taskid = path['env_infos']['state_index'][-1]
-                        task_rewards[taskid].append(np.sum(path["rewards"]))
-                    avg_rewards = []
-                    for j in range(task_size):
-                        avg_rewards.append(np.mean(np.array(task_rewards[j])))
-                    print('rewards for different tasks: ', avg_rewards)
                     # if not split
                     if split_param_size == 0:
+                        paths = split_algo.sampler.obtain_samples(0)
                         samples_data = split_algo.sampler.process_samples(0, paths)
                         opt_data = split_algo.optimize_policy(0, samples_data)
                         reward = float((dict(logger._tabular)['AverageReturn']))
                     else:
                         reward = 0
                         total_traj = 0
-                        param_pre_opt = np.copy(split_policy.get_param_values())
-                        accum_grad = param_pre_opt*0
+                        task_rewards = []
                         for j in range(task_size):
-                            split_policy.set_param_values(param_pre_opt)
-                            split_algo.sampler.process_samples(0, task_paths[j])
-                            samples_data = split_algo.sampler.process_samples(0, task_paths[j])
+                            paths = split_algo.sampler.obtain_samples(0, j)
+                            split_algo.sampler.process_samples(0, paths)
+                            samples_data = split_algo.sampler.process_samples(0, paths)
                             opt_data = split_algo.optimize_policy(0, samples_data)
                             reward += float((dict(logger._tabular)['AverageReturn'])) * float((dict(logger._tabular)['NumTrajs']))
                             total_traj += float((dict(logger._tabular)['NumTrajs']))
-                            accum_grad += split_policy.get_param_values() - param_pre_opt
-                        param_post_opt = np.copy(param_pre_opt + accum_grad/task_size)
-                        split_policy.set_param_values(param_post_opt)
+                            task_rewards.append(dict(logger._tabular)['AverageReturn'])
                         reward /= total_traj
+                        print('reward for different tasks: ', task_rewards)
                     learning_curve.append(reward)
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)

@@ -19,7 +19,7 @@ class BatchSampler(BaseSampler):
     def shutdown_worker(self):
         parallel_sampler.terminate_task(scope=self.algo.scope)
 
-    def obtain_samples(self, itr):
+    def obtain_samples(self, itr, target_task = None):
         cur_params = self.algo.policy.get_param_values()
 
         paths = parallel_sampler.sample_paths(
@@ -31,9 +31,8 @@ class BatchSampler(BaseSampler):
             policy=self.algo.policy,
             env = self.algo.env,
             baseline = self.algo.baseline,
+            target_task = target_task,
         )
-
-
 
         if self.algo.whole_paths:
             return paths
