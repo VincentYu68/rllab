@@ -419,10 +419,13 @@ class MaskedDenseLayer(L.Layer):
         self.Ws = []
         self.bs = []
         for i in range(split_num+1):
-            self.Ws.append(self.add_param(W, (num_inputs, num_units), name="W%d"%(i)))
+            append='split'
+            if i == 0:
+                append='share'
+            self.Ws.append(self.add_param(W, (num_inputs, num_units), name="W"+append+"%d"%(i)))
             if W_init is not None:
                 self.get_params()[-1].set_value(W_init)
-            self.bs.append(self.add_param(b, (num_units,), name="b%d"%(i),
+            self.bs.append(self.add_param(b, (num_units,), name="b"+append+"%d"%(i),
                                     regularizable=False))
             if b_init is not None:
                 self.get_params()[-1].set_value(b_init)

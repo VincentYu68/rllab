@@ -88,7 +88,7 @@ if __name__ == '__main__':
     alternate_update = False
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.001, 0.99]
+    split_percentages = [0.001, 0.99]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -361,43 +361,45 @@ if __name__ == '__main__':
                         for path in paths:
                             taskid = path['env_infos']['state_index'][-1]
                             task_paths[taskid].append(path)
-                            task_rewards[taskid].append(np.sum(path['env_infos']['rewards']))
+                            task_rewards[taskid].append(np.sum(path['rewards']))
                         pre_opt_parameter = split_policy.get_param_values()
                         # optimize the shared part
                         split_algo.sampler.process_samples(0, paths)
                         samples_data = split_algo.sampler.process_samples(0, paths)
                         for layer in split_policy._mean_network._layers:
                             for param in layer.get_params():
-                                if '0' not in param.name and ('W' in param.name or 'b' in param.name):
+                                if 'split' in param.name:
                                     layer.params[param].remove('trainable')
                         split_policy._cached_params = {}
                         split_policy._cached_param_dtypes = {}
                         split_policy._cached_param_shapes = {}
+                        split_algo.init_opt()
                         print('Optimizing shared parameter size: ', len(split_policy.get_param_values(trainable=True)))
                         split_algo.optimize_policy(0, samples_data)
 
                         # optimize the tasks
                         for layer in split_policy._mean_network._layers:
                             for param in layer.get_params():
-                                if '0' not in param.name and ('W' in param.name or 'b' in param.name):
+                                if 'split' in param.name:
                                     layer.params[param].add('trainable')
-                                if '0' in param.name:
+                                if 'share' in param.name:
                                     layer.params[param].remove('trainable')
 
                         # shuffle the optimization order
                         opt_order = np.arange(task_size)
-                        np.shuffle(opt_order)
+                        np.random.shuffle(opt_order)
+                        split_policy._cached_params = {}
+                        split_policy._cached_param_dtypes = {}
+                        split_policy._cached_param_shapes = {}
+                        split_algo.init_opt()
                         for taskid in opt_order:
                             split_algo.sampler.process_samples(0, task_paths[taskid])
                             samples_data = split_algo.sampler.process_samples(0, task_paths[taskid])
-                            split_policy._cached_params = {}
-                            split_policy._cached_param_dtypes = {}
-                            split_policy._cached_param_shapes = {}
                             print('Optimizing parameter size: ', len(split_policy.get_param_values(trainable=True)))
                             split_algo.optimize_policy(0, samples_data)
                         for layer in split_policy._mean_network._layers:
                             for param in layer.get_params():
-                                if '0' in param.name:
+                                if 'share' in param.name:
                                     layer.params[param].add('trainable')
 
                         for j in range(task_size):

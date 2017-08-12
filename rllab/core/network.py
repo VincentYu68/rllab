@@ -2271,7 +2271,7 @@ class MLP_MaskedSplit(LasagnePowered, Serializable):
                 split_num = split_num,
                 split_mask_W = split_masks[layer_id*2],
                 split_mask_b = split_masks[layer_id*2+1],
-                name="%shidden_split_%d" % (prefix, idx),
+                name="%shidden_%d" % (prefix, idx),
                 W=hidden_W_init,
                 b=hidden_b_init,
             )
@@ -2294,7 +2294,7 @@ class MLP_MaskedSplit(LasagnePowered, Serializable):
             split_num = split_num,
             split_mask_W = split_masks[layer_id*2],
             split_mask_b = split_masks[layer_id*2+1],
-            name="%soutput_split" % (prefix),
+            name="%soutput" % (prefix),
             W=output_W_init,
             b=output_b_init,
         )
