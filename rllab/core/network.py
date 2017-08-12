@@ -2275,10 +2275,9 @@ class MLP_MaskedSplit(LasagnePowered, Serializable):
                 W=hidden_W_init,
                 b=hidden_b_init,
             )
-
+            self._layers.append(l_hid)
             l_hid = L.concat([l_hid, l_split])
 
-            self._layers.append(l_hid)
             layer_id += 1
 
         initial_weights_W = init_net.layers[layer_id + 1].get_params()[0].get_value()
