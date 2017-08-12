@@ -3,7 +3,7 @@ import lasagne.layers as L
 import lasagne.nonlinearities as NL
 import numpy as np
 
-from rllab.core.lasagne_layers import ParamLayer
+from rllab.core.lasagne_layers import ParamLayer, ParamLayerSplit
 from rllab.core.lasagne_powered import LasagnePowered
 from rllab.core.network import MLP, MLPAppend, MLP_PS, MLP_PROJ, MLP_PSD, MLP_Split, MLP_SplitAct, MLP_SoftSplit, MLP_MaskedSplit
 from rllab.spaces import Box
@@ -192,14 +192,25 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                 )
                 l_log_std = std_network.output_layer
             else:
-                l_log_std = ParamLayer(
-                    mean_network.input_layer,
-                    num_units=action_dim,
-                    param=lasagne.init.Constant(np.log(init_std)),
-                    name="output_log_std",
-                    trainable=learn_std,
-                )
-                if net_mode == 6 or net_mode == 7 or net_mode == 8:
+                if net_mode != 8:
+                    l_log_std = ParamLayer(
+                        mean_network.input_layer,
+                        num_units=action_dim,
+                        param=lasagne.init.Constant(np.log(init_std)),
+                        name="output_log_std",
+                        trainable=learn_std,
+                    )
+                else:
+                    l_log_std = ParamLayerSplit(
+                        mean_network.input_layer,
+                        num_units=action_dim,
+                        param=lasagne.init.Constant(np.log(init_std)),
+                        name="output_log_std",
+                        trainable=learn_std,
+                        split_num = split_num,
+                        init_param=split_init_net.get_params()[-1]
+                    )
+                if net_mode == 6 or net_mode == 7:
                     l_log_std.get_params()[0].set_value(split_init_net.get_params()[-1].get_value())
 
         self.min_std = min_std

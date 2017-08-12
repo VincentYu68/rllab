@@ -86,9 +86,10 @@ if __name__ == '__main__':
     load_split_data = True
 
     alternate_update = False
+    accumulate_gradient = True
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.001, 0.99]
+    split_percentages = [0.0, 0.001, 0.5, 1.0]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -131,7 +132,7 @@ if __name__ == '__main__':
             policy=policy,
             baseline=baseline,
             batch_size=batch_size,
-            max_path_length=1000,
+            max_path_length=500,
             n_itr=5,
 
             discount=0.995,
@@ -309,7 +310,7 @@ if __name__ == '__main__':
                 policy=split_policy,
                 baseline=split_baseline,
                 batch_size=new_batch_size,
-                max_path_length=1000,
+                max_path_length=500,
                 n_itr=5,
 
                 discount=0.995,
@@ -349,7 +350,42 @@ if __name__ == '__main__':
                             total_traj += float((dict(logger._tabular)['NumTrajs']))
                             task_rewards.append(dict(logger._tabular)['AverageReturn'])
                         reward /= total_traj
-                        print('reward for different tasks: ', task_rewards)
+                        print('reward for different tasks: ', task_rewards, reward)
+                    elif accumulate_gradient:
+                        paths = split_algo.sampler.obtain_samples(0)
+                        reward = float((dict(logger._tabular)['AverageReturn']))
+                        task_paths = []
+                        task_rewards = []
+                        for j in range(task_size):
+                            task_paths.append([])
+                            task_rewards.append([])
+                        for path in paths:
+                            taskid = path['env_infos']['state_index'][-1]
+                            task_paths[taskid].append(path)
+                            task_rewards[taskid].append(np.sum(path['rewards']))
+                        pre_opt_parameter = split_policy.get_param_values()
+
+                        split_algo.sampler.process_samples(0, paths)
+                        all_data = split_algo.sampler.process_samples(0, paths)
+                        split_algo.optimize_policy(0, all_data)
+                        all_data_grad = split_policy.get_param_values() - pre_opt_parameter
+
+                        accum_grad = np.zeros(pre_opt_parameter.shape)
+                        for j in range(task_size):
+                            if len(task_paths[j]) == 0:
+                                continue
+                            split_policy.set_param_values(pre_opt_parameter)
+                            split_algo.sampler.process_samples(0, task_paths[j])
+                            samples_data = split_algo.sampler.process_samples(0, task_paths[j])
+                            split_algo.optimize_policy(0, samples_data)
+                            accum_grad += split_policy.get_param_values() - pre_opt_parameter
+                        split_policy.set_param_values(pre_opt_parameter + accum_grad * split_percentage + (1-split_percentage)*all_data_grad)
+
+                        for j in range(task_size):
+                            task_rewards[j] = np.mean(task_rewards[j])
+
+                        print('reward for different tasks: ', task_rewards, reward)
+                        print('mean kl: ', split_algo.mean_kl(all_data))
                     else:
                         paths = split_algo.sampler.obtain_samples(0)
                         reward = float((dict(logger._tabular)['AverageReturn']))
@@ -404,7 +440,7 @@ if __name__ == '__main__':
 
                         for j in range(task_size):
                             task_rewards[j] = np.mean(task_rewards[j])
-                        print('reward for different tasks: ', task_rewards)
+                        print('reward for different tasks: ', task_rewards, reward)
 
                     learning_curve.append(reward)
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')

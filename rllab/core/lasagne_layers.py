@@ -136,6 +136,41 @@ class ParamLayer(L.Layer):
         tiled = TT.tile(reshaped_param, tile_arg, ndim=ndim)
         return tiled
 
+class ParamLayerSplit(L.Layer):
+    def __init__(self, incoming, num_units, param=lasagne.init.Constant(0.), split_num=1, init_param=None,
+                 trainable=True, **kwargs):
+        super(ParamLayerSplit, self).__init__(incoming, **kwargs)
+        self.num_units = num_units
+        self.param_list = []
+        for i in range(split_num):
+            self.param_list.append(self.add_param(
+                param,
+                (num_units,),
+                name="param%d"%(i),
+                trainable=trainable
+            ))
+            if init_param is not None:
+                self.get_params()[-1].set_value(init_param.get_value())
+        self.split_num = split_num
+
+    def get_output_shape_for(self, input_shape):
+        return input_shape[:-1] + (self.num_units,)
+
+    def get_output_for(self, input, **kwargs):
+        ndim = input.ndim
+
+        activation_mask = TT.stack([input[:, -self.split_num]]*self.num_units).T
+        reshaped_param = TT.reshape(self.param_list[0], (1,) * (ndim - 1) + (self.num_units,))
+        tile_arg = TT.concatenate([input.shape[:-1], [1]])
+        tiled = TT.tile(reshaped_param, tile_arg, ndim=ndim) * activation_mask
+        for i in range(1, self.split_num):
+            activation_mask = TT.stack([input[:, -self.split_num+i]]*self.num_units).T
+            reshaped_param = TT.reshape(self.param_list[i], (1,) * (ndim - 1) + (self.num_units,))
+            tile_arg = TT.concatenate([input.shape[:-1], [1]])
+            tiled += TT.tile(reshaped_param, tile_arg, ndim=ndim) * activation_mask
+
+        return tiled
+
 
 class OpLayer(L.MergeLayer):
     def __init__(self, incoming, op,
