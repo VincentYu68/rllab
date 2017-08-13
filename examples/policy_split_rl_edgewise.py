@@ -358,7 +358,6 @@ if __name__ == '__main__':
                         print('reward for different tasks: ', task_rewards, reward)
                     elif accumulate_gradient:
                         paths = split_algo.sampler.obtain_samples(0)
-                        reward = float((dict(logger._tabular)['AverageReturn']))
                         task_paths = []
                         task_rewards = []
                         for j in range(task_size):
@@ -372,6 +371,7 @@ if __name__ == '__main__':
 
                         split_algo.sampler.process_samples(0, paths)
                         all_data = split_algo.sampler.process_samples(0, paths)
+                        reward = float((dict(logger._tabular)['AverageReturn']))
                         split_algo.optimize_policy(0, all_data)
                         all_data_grad = split_policy.get_param_values() - pre_opt_parameter
 
