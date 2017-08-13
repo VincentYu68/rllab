@@ -88,6 +88,11 @@ if __name__ == '__main__':
     alternate_update = False
     accumulate_gradient = True
 
+    if alternate_update:
+        append += '_alternate_update'
+    if accumulate_gradient:
+        append += '_accumulate_gradient'
+
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
     split_percentages = [0.0, 0.001, 0.5, 1.0]
     learning_curves = []
@@ -132,7 +137,7 @@ if __name__ == '__main__':
             policy=policy,
             baseline=baseline,
             batch_size=batch_size,
-            max_path_length=500,
+            max_path_length=1000,
             n_itr=5,
 
             discount=0.995,
@@ -303,14 +308,14 @@ if __name__ == '__main__':
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
             new_batch_size = batch_size
-            if split_param_size != 0:
-                new_batch_size = int(batch_size / 2)
+            #if split_param_size != 0:
+            #    new_batch_size = int(batch_size / 2)
             split_algo = TRPO(
                 env=env,
                 policy=split_policy,
                 baseline=split_baseline,
                 batch_size=new_batch_size,
-                max_path_length=500,
+                max_path_length=1000,
                 n_itr=5,
 
                 discount=0.995,
