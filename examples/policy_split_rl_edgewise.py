@@ -64,15 +64,15 @@ if __name__ == '__main__':
     dartenv.split_task_test = True
 
     hidden_size = (100,50,25)
-    batch_size = 5000
+    batch_size = 30000
 
     random_split = False
     prioritized_split = False
 
     initialize_epochs = 100
     grad_epochs = 30
-    test_epochs = 100
-    append = 'hopper_split_test_sd4_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    test_epochs = 400
+    append = 'hopper_continuousfoot_smallrange_sharestd_blend_sd5_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     task_size = 2
 
@@ -82,8 +82,8 @@ if __name__ == '__main__':
         if prioritized_split:
             append += '_prio'
 
-    load_init_policy = True
-    load_split_data = True
+    load_init_policy = False
+    load_split_data = False
 
     alternate_update = False
     accumulate_gradient = True
@@ -94,7 +94,7 @@ if __name__ == '__main__':
         append += '_accumulate_gradient'
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.001, 0.5, 1.0]
+    split_percentages = [0.0, 0.5, 1.0]
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         dartenv.avg_div = 0
         dartenv.split_task_test = True
 
-        np.random.seed(testit*3+4)
+        np.random.seed(testit*3+5)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -146,7 +146,7 @@ if __name__ == '__main__':
         )
         algo.init_opt()
         from rllab.sampler import parallel_sampler
-        parallel_sampler.initialize(n_parallel=2)
+        parallel_sampler.initialize(n_parallel=7)
         algo.start_worker()
 
         if not load_init_policy:
@@ -306,10 +306,10 @@ if __name__ == '__main__':
                 split_policy = copy.deepcopy(policy)
 
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
-
+            
             new_batch_size = batch_size
-            #if split_param_size != 0:
-            #    new_batch_size = int(batch_size / 2)
+            if alternate_update and split_param_size != 0:
+                new_batch_size = int(batch_size / task_size)
             split_algo = TRPO(
                 env=env,
                 policy=split_policy,
@@ -324,7 +324,7 @@ if __name__ == '__main__':
             )
             split_algo.init_opt()
 
-            parallel_sampler.initialize(n_parallel=2)
+            parallel_sampler.initialize(n_parallel=7)
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
@@ -367,7 +367,7 @@ if __name__ == '__main__':
                             taskid = path['env_infos']['state_index'][-1]
                             task_paths[taskid].append(path)
                             task_rewards[taskid].append(np.sum(path['rewards']))
-                        pre_opt_parameter = split_policy.get_param_values()
+                        pre_opt_parameter = np.copy(split_policy.get_param_values())
 
                         split_algo.sampler.process_samples(0, paths)
                         all_data = split_algo.sampler.process_samples(0, paths)
@@ -375,6 +375,7 @@ if __name__ == '__main__':
                         split_algo.optimize_policy(0, all_data)
                         all_data_grad = split_policy.get_param_values() - pre_opt_parameter
 
+                        split_policy.set_param_values(pre_opt_parameter)
                         accum_grad = np.zeros(pre_opt_parameter.shape)
                         for j in range(task_size):
                             if len(task_paths[j]) == 0:
