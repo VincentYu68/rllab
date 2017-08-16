@@ -67,7 +67,7 @@ if __name__ == '__main__':
 
         #time.sleep(0.1)
 
-        if d:
+        if d or i == 1499:
             print('reward: ', rew)
             o=env_wrapper.reset()
             #break

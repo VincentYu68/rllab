@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 import os
 
 
-def train(train_fn, X, Y, iter, batch = 32, shuffle=True):
+def train(train_fn, X, Y, iter, batch = 32, shuffle=True, out = None, testX = None, testY = None):
     X=np.array(X)
     Y=np.array(Y)
     losses = []
@@ -44,18 +44,22 @@ def train(train_fn, X, Y, iter, batch = 32, shuffle=True):
             output = np.array(Y[excerpt])
             train_err += train_fn(input, output)
             train_batches += 1
-        losses.append(train_err / train_batches)
+        if out is not None:
+            losses.append(test(out, testX, testY))
+        else:
+            losses.append(train_err / train_batches)
         #print("aux training loss:\t\t{:.6f}".format(train_err / train_batches))
     return losses
 
 def test(out_fn, X, Y):
     pred = out_fn(X)
     exp_id = np.random.randint(len(X))
-    print('example test: ', X[exp_id], pred[exp_id], Y[exp_id])
+    #print('example test: ', X[exp_id], pred[exp_id], Y[exp_id])
     return np.mean(((pred-Y)**2))
 
 def process_data(allX, allY):
     newAllX = []
+    scaledAllY = []
     for i, Xs in enumerate(allX):
         newXs = []
         for X in Xs:
@@ -63,7 +67,12 @@ def process_data(allX, allY):
             newXs.append(newX)
         newXs = np.array(newXs)
         newAllX.append(newXs)
-    return newAllX, allY
+
+        scale = 3.14
+        #if i == 0:
+        #    scale = 1
+        scaledAllY.append(np.array(allY[i]) / scale)
+    return newAllX, scaledAllY
 
 def augment_split_vec(allXs):
     newAllXs = []
@@ -91,7 +100,7 @@ if __name__ == '__main__':
         allY.append(Y)
     procXs, procYs = process_data(allX, allY)
 
-    trainig_percent = 0.75
+    trainig_percent = 0.9
 
     trainingXs = []
     trainingYs = []
@@ -118,13 +127,13 @@ if __name__ == '__main__':
         append += '_rand'
         if prioritized_split:
             append += '_prio'
-    init_epochs = 450
+    init_epochs = 30
     epochs = 40
-    test_epochs = 450
+    test_epochs = 300
     hidden_size = (128, 64)
-    append += str(total_training_size) + ':_' + str(init_epochs) + '_' + str(epochs) + '_' + str(test_epochs)+'_' + str(hidden_size)
+    append += str(total_training_size) + ':_' + str(init_epochs) + '_' + str(epochs) +'_' + str(hidden_size)
 
-    split_percentages = [0.0, 0.1, 0.4, 0.6, 0.7, 1.0, 2.0] # 2.0 means using mean as the threshold
+    split_percentages = [0.0, 0.05, 0.5, 0.7, 1.0] # 2.0 means using mean as the threshold
 
     load_init_policy = False
     load_split_data = False
@@ -156,7 +165,7 @@ if __name__ == '__main__':
     loss = lasagne.objectives.squared_error(prediction, out_var)
     loss = loss.mean()
     params = network.get_params(trainable=True)
-    updates = lasagne.updates.adam(loss, params, learning_rate=0.002)
+    updates = lasagne.updates.adam(loss, params, learning_rate=0.0005)
     train_fn = T.function([network.input_layer.input_var, out_var], loss, updates=updates, allow_input_downcast=True)
     ls = TT.mean((prediction - out_var)**2)
     grad = T.grad(ls, params, disconnected_inputs='warn')
@@ -244,7 +253,7 @@ if __name__ == '__main__':
         for k in range(len(task_grads[0][0])):
             masks.append(np.zeros(split_counts[k].shape))
 
-        if split_percentage < 1.0:
+        if split_percentage <= 1.01:
             for i in range(split_param_size):
                 masks[split_metrics[i][0]][split_metrics[i][1]] = 1
         else:
@@ -274,12 +283,13 @@ if __name__ == '__main__':
             split_network = copy.deepcopy(network)
             split_network.set_param_values(init_param_value)
         print('Network parameter size: ', total_param_size, len(split_network.get_param_values()))
+
         out_var = TT.matrix('out_var2')
         prediction = split_network._output
         loss_split = lasagne.objectives.squared_error(prediction, out_var)
         loss_split = loss_split.mean()
         params_split = split_network.get_params(trainable=True)
-        updates_split = lasagne.updates.adam(loss_split, params_split, learning_rate=0.002)
+        updates_split = lasagne.updates.adam(loss_split, params_split, learning_rate=0.0005)
         train_fn_split = T.function([split_network.input_layer.input_var, out_var], loss_split, updates=updates_split, allow_input_downcast=True)
         out = T.function([split_network.input_layer.input_var], prediction, allow_input_downcast=True)
         gradsplit = T.grad(loss_split, params_split, disconnected_inputs='warn')
@@ -292,10 +302,16 @@ if __name__ == '__main__':
         split_network.set_param_values(split_init_param)
 
         if split_param_size == 0:
-            losses = train(train_fn_split, np.concatenate(trainingXs), np.concatenate(trainingYs), int(test_epochs), batch = 32, shuffle=True)
+            init_error = test(out, np.concatenate(testingXs), np.concatenate(testingYs))
+        else:
+            init_error = test(out, np.concatenate(testingXs_aug), np.concatenate(testingYs))
+        print('init error: ', split_percentage, init_error)
+
+        if split_param_size == 0:
+            losses = train(train_fn_split, np.concatenate(trainingXs), np.concatenate(trainingYs), int(test_epochs), batch = 32, shuffle=True, out=out, testX=np.concatenate(testingXs), testY=np.concatenate(testingYs))
             avg_error += test(out, np.concatenate(testingXs), np.concatenate(testingYs))
         else:
-            losses = train(train_fn_split, np.concatenate(trainingXs_aug), np.concatenate(trainingYs), int(test_epochs), batch = 32, shuffle=True)
+            losses = train(train_fn_split, np.concatenate(trainingXs_aug), np.concatenate(trainingYs), int(test_epochs), batch = 32, shuffle=True, out=out, testX=np.concatenate(testingXs_aug), testY=np.concatenate(testingYs))
             avg_error += test(out, np.concatenate(testingXs_aug), np.concatenate(testingYs))
 
         avg_learning_curve.append(losses)

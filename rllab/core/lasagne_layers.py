@@ -453,7 +453,7 @@ class MaskedDenseLayer(L.Layer):
 
         self.Ws = []
         self.bs = []
-        for i in range(split_num+1):
+        for i in range(split_num+0):
             append='split'
             if i == 0:
                 append='share'
@@ -483,8 +483,8 @@ class MaskedDenseLayer(L.Layer):
 
         activation = T.dot(input[:, 0:-self.split_num], self.Ws[0]*self.share_mask_W)
         activation = activation + (self.bs[0]* self.share_mask_b).dimshuffle('x', 0)
-        for i in range(1, len(self.Ws)):
-            activation_mask = TT.stack([input[:, -self.split_num+i-1]]*self.num_units).T
+        for i in range(0, len(self.Ws)):
+            activation_mask = TT.stack([input[:, -self.split_num+i-0]]*self.num_units).T
             activation += (T.dot(input[:, 0:-self.split_num], self.Ws[i]*self.split_mask_W) + (self.bs[i]* self.split_mask_b).dimshuffle('x', 0)) * activation_mask
 
         return self.nonlinearity(activation)
