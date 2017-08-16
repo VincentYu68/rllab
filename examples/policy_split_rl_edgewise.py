@@ -71,18 +71,18 @@ if __name__ == '__main__':
     num_parallel = 2
 
     hidden_size = (64, 64)
-    batch_size = 8000
+    batch_size = 15000
     pathlength = 500
 
 
     random_split = False
     prioritized_split = False
-    adaptive_sample = True
+    adaptive_sample = False
 
     initialize_epochs = 0
     grad_epochs = 1
     test_epochs = 300
-    append = 'hopper_split_test_adaptsample_adapttaskKLmean_sd0_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    append = 'hopper_split_test_sd0_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     task_size = 2
 
@@ -107,12 +107,13 @@ if __name__ == '__main__':
     split_percentages = [0.0]
 
     learning_curves = []
+    kl_divergences = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
+        kl_divergences.append([])
 
     test_num = 3
     performances = []
-    kl_divergences = []
 
     diretory = 'data/trained/gradient_temp/rl_split_' + append
 
@@ -507,7 +508,7 @@ if __name__ == '__main__':
 
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)
-                kl_divergences.append(kl_div_curve)
+                kl_divergences[split_id].append(kl_div_curve)
                 joblib.dump(split_policy, diretory + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
 
                 avg_error += float(reward)
@@ -527,6 +528,22 @@ if __name__ == '__main__':
             plt.legend(bbox_to_anchor=(0.3, 0.3),
             bbox_transform=plt.gcf().transFigure, numpoints=1)
             plt.savefig(diretory + '/split_learning_curves.png')
+
+            if len(kl_divergences[0]) > 0:
+                avg_kl_div = []
+                for i in range(len(kl_divergences)):
+                    avg_kl_div.append(np.mean(kl_divergences[i], axis=0))
+                for i in range(len(avg_kl_div)):
+                    one_perc_kl_div = np.array(avg_kl_div[i])
+                    plt.figure()
+                    for j in range(len(one_perc_kl_div[0])):
+                        append='task%d'%j
+                        if j == 0:
+                            append = 'all'
+                        plt.plot(one_perc_kl_div[:, j], label=str(split_percentages[i])+append)
+                    plt.legend(bbox_to_anchor=(0.3, 0.3),
+                    bbox_transform=plt.gcf().transFigure, numpoints=1)
+                    plt.savefig(diretory + '/kl_div_%s.png'%str(split_percentages[i]))
         performances.append(pred_list)
 
 
@@ -535,6 +552,7 @@ if __name__ == '__main__':
     plt.plot(split_percentages, np.mean(performances, axis=0))
     plt.savefig(diretory + '/split_performance.png')
 
+    np.savetxt(diretory + '/learning_curves.txt', learning_curves)
     avg_learning_curve = []
     for i in range(len(learning_curves)):
         avg_learning_curve.append(np.mean(learning_curves[i], axis=0))
@@ -546,8 +564,11 @@ if __name__ == '__main__':
     plt.savefig(diretory + '/split_learning_curves.png')
 
     if len(kl_divergences[0]) > 0:
+        avg_kl_div = []
         for i in range(len(kl_divergences)):
-            one_perc_kl_div = np.array(kl_divergences[i])
+            avg_kl_div.append(np.mean(kl_divergences[i], axis=0))
+        for i in range(len(avg_kl_div)):
+            one_perc_kl_div = np.array(avg_kl_div[i])
             plt.figure()
             for j in range(len(one_perc_kl_div[0])):
                 append='task%d'%j

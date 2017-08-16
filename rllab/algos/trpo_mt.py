@@ -103,12 +103,12 @@ class TRPO_MultiTask(NPO):
             surr_loss = - TT.sum(lr * advantage_var * valid_var) / TT.sum(valid_var)
         else:
             weighted_kls = []
-            for i, one_task_kl in enumerate(task_kls):
-                weighted_kls.append(TT.mean(one_task_kl * kl_weight_var[i]))
-            mean_kl = TT.mean(weighted_kls)
             '''for i, one_task_kl in enumerate(task_kls):
+                weighted_kls.append(TT.mean(one_task_kl * kl_weight_var[i]))
+            mean_kl = TT.mean(weighted_kls)'''
+            for i, one_task_kl in enumerate(task_kls):
                 weighted_kls.append((one_task_kl * kl_weight_var[i]))
-            mean_kl = TT.mean(TT.concatenate(weighted_kls))'''
+            mean_kl = TT.mean(TT.concatenate(weighted_kls))
             surr_loss = - TT.mean(lr * advantage_var)
 
         input_list = [
@@ -194,7 +194,7 @@ class TRPO_MultiTask(NPO):
         logger.record_tabular('dLoss', loss_before - loss_after)
 
         # update the weights for the kl divergence
-        kl_divs = []
+        '''kl_divs = []
         for constraint in self.f_constraints:
             kl_divs.append(sliced_fun(constraint, 1)(all_input_values))
         for i in range(1, len(kl_divs)):
@@ -202,7 +202,7 @@ class TRPO_MultiTask(NPO):
                 self.kl_weights[i-1] /= 1.5
             if kl_divs[i] > 1.2*self.step_size:
                 self.kl_weights[i-1] *= 1.5
-        '''self.kl_weights /= np.sum(self.kl_weights)
+        self.kl_weights /= np.sum(self.kl_weights)
         self.kl_weights *= self.task_num'''
         print('Current kl divergence weight: ', self.kl_weights)
 
