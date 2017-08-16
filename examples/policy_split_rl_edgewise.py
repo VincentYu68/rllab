@@ -82,7 +82,7 @@ if __name__ == '__main__':
     initialize_epochs = 0
     grad_epochs = 1
     test_epochs = 300
-    append = 'hopper_split_test_adaptsample_sd3_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    append = 'hopper_split_test_adaptsample_adapttaskKLmean_sd0_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     task_size = 2
 
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     for i in range(len(split_percentages)):
         learning_curves.append([])
 
-    test_num = 1
+    test_num = 3
     performances = []
     kl_divergences = []
 
@@ -339,7 +339,7 @@ if __name__ == '__main__':
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
             new_batch_size = batch_size
-            if split_param_size != 0 and (alternate_update or adaptive_sample):
+            if (split_param_size != 0 and alternate_update) or adaptive_sample:
                 new_batch_size = int(batch_size / task_size)
             split_algo = TRPO_MultiTask(
                 env=env,
@@ -375,14 +375,23 @@ if __name__ == '__main__':
                     if split_param_size == 0:
                         if adaptive_sample:
                             paths = []
+                            reward_paths = []
                             for t in range(task_size):
                                 paths += split_algo.sampler.obtain_samples(0, t)
+                                reward_paths += split_algo.sampler.obtain_samples(0)
                         else:
                             paths = split_algo.sampler.obtain_samples(0)
                         samples_data = split_algo.sampler.process_samples(0, paths)
                         opt_data = split_algo.optimize_policy(0, samples_data)
-                        reward = float((dict(logger._tabular)['AverageReturn']))
+                        if not adaptive_sample:
+                            reward = float((dict(logger._tabular)['AverageReturn']))
+                        else:
+                            reward = 0
+                            for path in reward_paths:
+                                reward += np.sum(path["rewards"])
+                            reward /= len(reward_paths)
                         kl_div_curve.append(split_algo.mean_kl(samples_data))
+                        print('reward: ', reward)
                     elif alternate_update:
                         reward = 0
                         total_traj = 0
