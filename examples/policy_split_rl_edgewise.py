@@ -74,6 +74,7 @@ if __name__ == '__main__':
     batch_size = 8000
     pathlength = 500
 
+
     random_split = False
     prioritized_split = False
     adaptive_sample = True
@@ -104,6 +105,7 @@ if __name__ == '__main__':
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
     split_percentages = [0.0]
+
     learning_curves = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
@@ -161,6 +163,7 @@ if __name__ == '__main__':
 
         from rllab.sampler import parallel_sampler
         parallel_sampler.initialize(n_parallel=num_parallel)
+
         algo.start_worker()
 
         if not load_init_policy:
@@ -296,6 +299,16 @@ if __name__ == '__main__':
                     else:
                         masks[split_metrics[i][0]][split_metrics[i][1]] = 1
 
+            mask_split_flat = np.array([])
+            for k in range(int((len(task_grads[0][0]) - 1)/2)):
+                for j in range(task_size):
+                    mask_split_flat = np.concatenate([mask_split_flat, np.array(masks[k*2]).flatten(), np.array(masks[k*2+1]).flatten()])
+            mask_share_flat = np.ones(len(mask_split_flat))
+            mask_share_flat -= mask_split_flat
+            mask_split_flat = np.concatenate([mask_split_flat, np.ones(dartenv.act_dim)])
+            mask_share_flat = np.concatenate([mask_share_flat, np.ones(dartenv.act_dim)])
+
+
             policy.set_param_values(init_param_value)
             if split_param_size != 0:
                 if dartenv.avg_div != task_size:
@@ -345,6 +358,7 @@ if __name__ == '__main__':
             split_algo.init_opt()
 
             parallel_sampler.initialize(n_parallel=num_parallel)
+
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
@@ -413,7 +427,7 @@ if __name__ == '__main__':
                             processed_task_data.append(samples_data)
                             split_algo.optimize_policy(0, samples_data)
                             accum_grad += split_policy.get_param_values() - pre_opt_parameter
-                        split_policy.set_param_values(pre_opt_parameter + accum_grad * split_percentage + (1-split_percentage)*all_data_grad)
+                        split_policy.set_param_values(pre_opt_parameter + accum_grad * mask_split_flat + mask_share_flat*all_data_grad)
 
                         for j in range(task_size):
                             task_rewards[j] = np.mean(task_rewards[j])
