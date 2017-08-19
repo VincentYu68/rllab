@@ -68,7 +68,7 @@ if __name__ == '__main__':
     dartenv.avg_div = 0
     dartenv.split_task_test = True
 
-    num_parallel = 2
+    num_parallel = 4
 
     hidden_size = (64, 64)
     batch_size = 15000
@@ -79,12 +79,12 @@ if __name__ == '__main__':
     prioritized_split = False
     adaptive_sample = False
 
-    initialize_epochs = 0
-    grad_epochs = 1
-    test_epochs = 300
-    append = 'hopper_split_test_sd0_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    initialize_epochs = 120
+    grad_epochs = 30
+    test_epochs = 150
+    append = 'hopper_split_test_4task_masked_grad_sd0_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
-    task_size = 2
+    task_size = 4
 
     reps = 1
     if random_split:
@@ -104,7 +104,7 @@ if __name__ == '__main__':
         append += '_accumulate_gradient'
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0]
+    split_percentages = [0.0, 0.3, 1.0]
 
     learning_curves = []
     kl_divergences = []
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         learning_curves.append([])
         kl_divergences.append([])
 
-    test_num = 3
+    test_num = 2
     performances = []
 
     diretory = 'data/trained/gradient_temp/rl_split_' + append
@@ -146,7 +146,7 @@ if __name__ == '__main__':
         if load_init_policy:
             policy = joblib.load(diretory + '/init_policy.pkl')
 
-        algo = TRPO_MultiTask(
+        algo = TRPO(#_MultiTask(
             env=env,
             policy=policy,
             baseline=baseline,
@@ -158,7 +158,7 @@ if __name__ == '__main__':
             step_size=0.01,
             gae_lambda=0.97,
 
-            task_num=2,
+            #task_num=task_size,
         )
         algo.init_opt()
 
@@ -229,7 +229,7 @@ if __name__ == '__main__':
             for j in range(task_size):
                 algo.sampler.process_samples(0, task_paths[j])
                 samples_data = algo.sampler.process_samples(0, task_paths[j])
-                grad = get_gradient(algo, samples_data, True)
+                grad = get_gradient(algo, samples_data, False)
                 task_grads[j].append(grad)
 
         print('------- collected gradient info -------------')
@@ -342,7 +342,7 @@ if __name__ == '__main__':
             new_batch_size = batch_size
             if (split_param_size != 0 and alternate_update) or adaptive_sample:
                 new_batch_size = int(batch_size / task_size)
-            split_algo = TRPO_MultiTask(
+            split_algo = TRPO(#_MultiTask(
                 env=env,
                 policy=split_policy,
                 baseline=split_baseline,
@@ -354,7 +354,7 @@ if __name__ == '__main__':
                 step_size=0.01,
                 gae_lambda=0.97,
 
-                task_num=2,
+                #task_num=task_size,
             )
             split_algo.init_opt()
 
@@ -393,6 +393,7 @@ if __name__ == '__main__':
                             reward /= len(reward_paths)
                         kl_div_curve.append(split_algo.mean_kl(samples_data))
                         print('reward: ', reward)
+                        print(split_algo.mean_kl(samples_data))
                     elif alternate_update:
                         reward = 0
                         total_traj = 0
@@ -420,7 +421,6 @@ if __name__ == '__main__':
                             task_rewards[taskid].append(np.sum(path['rewards']))
                         pre_opt_parameter = np.copy(split_policy.get_param_values())
 
-                        split_algo.sampler.process_samples(0, paths)
                         all_data = split_algo.sampler.process_samples(0, paths)
                         reward = float((dict(logger._tabular)['AverageReturn']))
                         split_algo.optimize_policy(0, all_data)
@@ -430,24 +430,39 @@ if __name__ == '__main__':
                         processed_task_data = []
                         for j in range(task_size):
                             if len(task_paths[j]) == 0:
+                                processed_task_data.append([])
                                 continue
                             split_policy.set_param_values(pre_opt_parameter)
-                            split_algo.sampler.process_samples(0, task_paths[j])
-                            samples_data = split_algo.sampler.process_samples(0, task_paths[j])
+                            samples_data = split_algo.sampler.process_samples(0, task_paths[j], False)
                             processed_task_data.append(samples_data)
                             split_algo.optimize_policy(0, samples_data)
                             accum_grad += split_policy.get_param_values() - pre_opt_parameter
-                        split_policy.set_param_values(pre_opt_parameter + accum_grad * mask_split_flat + mask_share_flat*all_data_grad)
+                        # do a line search to project the udpate onto the constraint manifold
+                        sum_grad = accum_grad * mask_split_flat + mask_share_flat*all_data_grad
+                        '''ls_steps = []
+                        for s in range(20):
+                            ls_steps.append(0.95**s)
+                        for step in ls_steps:
+                            split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
+                            if split_algo.mean_kl(all_data)[0] < split_algo.step_size:
+                                break                          '''
+                        step=1
+
+                        split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
 
                         for j in range(task_size):
                             task_rewards[j] = np.mean(task_rewards[j])
 
                         print('reward for different tasks: ', task_rewards, reward)
-                        print('mean kl: ', split_algo.mean_kl(all_data))
+                        print('mean kl: ', split_algo.mean_kl(all_data), ' step size: ', step)
                         task_mean_kls = []
                         for j in range(task_size):
-                            task_mean_kls.append(split_algo.mean_kl(processed_task_data[j]))
+                            if len(processed_task_data[j]) == 0:
+                                task_mean_kls.append(0)
+                            else:
+                                task_mean_kls.append(split_algo.mean_kl(processed_task_data[j])[0])
                         print('mean kl for different tasks: ', task_mean_kls)
+                        kl_div_curve.append(np.concatenate([split_algo.mean_kl(all_data), task_mean_kls]))
                     else:
                         paths = split_algo.sampler.obtain_samples(0)
                         reward = float((dict(logger._tabular)['AverageReturn']))
@@ -530,29 +545,31 @@ if __name__ == '__main__':
             plt.savefig(diretory + '/split_learning_curves.png')
 
             if len(kl_divergences[0]) > 0:
+                print('kldiv:', kl_divergences)
                 avg_kl_div = []
                 for i in range(len(kl_divergences)):
-                    avg_kl_div.append(np.mean(kl_divergences[i], axis=0))
+                    if len(kl_divergences[i]) > 0:
+                        avg_kl_div.append(np.mean(kl_divergences[i], axis=0))
+                print(avg_kl_div)
                 for i in range(len(avg_kl_div)):
                     one_perc_kl_div = np.array(avg_kl_div[i])
+                    print(i, one_perc_kl_div)
                     plt.figure()
                     for j in range(len(one_perc_kl_div[0])):
-                        append='task%d'%j
+                        append = 'task%d' % j
                         if j == 0:
                             append = 'all'
-                        plt.plot(one_perc_kl_div[:, j], label=str(split_percentages[i])+append)
+                        plt.plot(one_perc_kl_div[:, j], label=str(split_percentages[i]) + append, alpha=0.3)
                     plt.legend(bbox_to_anchor=(0.3, 0.3),
-                    bbox_transform=plt.gcf().transFigure, numpoints=1)
-                    plt.savefig(diretory + '/kl_div_%s.png'%str(split_percentages[i]))
+                               bbox_transform=plt.gcf().transFigure, numpoints=1)
+                    plt.savefig(diretory + '/kl_div_%s.png' % str(split_percentages[i]))
         performances.append(pred_list)
-
 
     np.savetxt(diretory + '/performance.txt', performances)
     plt.figure()
     plt.plot(split_percentages, np.mean(performances, axis=0))
     plt.savefig(diretory + '/split_performance.png')
 
-    np.savetxt(diretory + '/learning_curves.txt', learning_curves)
     avg_learning_curve = []
     for i in range(len(learning_curves)):
         avg_learning_curve.append(np.mean(learning_curves[i], axis=0))
@@ -560,8 +577,9 @@ if __name__ == '__main__':
     for i in range(len(split_percentages)):
         plt.plot(avg_learning_curve[i], label=str(split_percentages[i]))
     plt.legend(bbox_to_anchor=(0.3, 0.3),
-    bbox_transform=plt.gcf().transFigure, numpoints=1)
+               bbox_transform=plt.gcf().transFigure, numpoints=1)
     plt.savefig(diretory + '/split_learning_curves.png')
+    np.savetxt(diretory + '/learning_curves.txt', avg_learning_curve)
 
     if len(kl_divergences[0]) > 0:
         avg_kl_div = []
@@ -571,14 +589,13 @@ if __name__ == '__main__':
             one_perc_kl_div = np.array(avg_kl_div[i])
             plt.figure()
             for j in range(len(one_perc_kl_div[0])):
-                append='task%d'%j
+                append = 'task%d' % j
                 if j == 0:
                     append = 'all'
-                plt.plot(one_perc_kl_div[:, j], label=str(split_percentages[i])+append)
+                plt.plot(one_perc_kl_div[:, j], label=str(split_percentages[i]) + append, alpha=0.3)
             plt.legend(bbox_to_anchor=(0.3, 0.3),
-            bbox_transform=plt.gcf().transFigure, numpoints=1)
-            plt.savefig(diretory + '/kl_div_%s.png'%str(split_percentages[i]))
-
+                       bbox_transform=plt.gcf().transFigure, numpoints=1)
+            plt.savefig(diretory + '/kl_div_%s.png' % str(split_percentages[i]))
 
     plt.close('all')
 
