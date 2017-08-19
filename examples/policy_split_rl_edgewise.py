@@ -72,6 +72,7 @@ if __name__ == '__main__':
 
     hidden_size = (64, 64)
     batch_size = 25000
+
     pathlength = 500
 
 
@@ -112,7 +113,7 @@ if __name__ == '__main__':
         learning_curves.append([])
         kl_divergences.append([])
 
-    test_num = 3
+    test_num = 2
     performances = []
 
     diretory = 'data/trained/gradient_temp/rl_split_' + append
@@ -430,6 +431,7 @@ if __name__ == '__main__':
                         processed_task_data = []
                         for j in range(task_size):
                             if len(task_paths[j]) == 0:
+                                processed_task_data.append([])
                                 continue
                             split_policy.set_param_values(pre_opt_parameter)
                             samples_data = split_algo.sampler.process_samples(0, task_paths[j], False)
@@ -437,23 +439,29 @@ if __name__ == '__main__':
                             split_algo.optimize_policy(0, samples_data)
                             accum_grad += split_policy.get_param_values() - pre_opt_parameter
                         # do a line search to project the udpate onto the constraint manifold
+                        sum_grad = accum_grad * mask_split_flat + mask_share_flat*all_data_grad
                         '''ls_steps = []
                         for s in range(20):
-                            ls_steps.append(0.85**s)
+                            ls_steps.append(0.95**s)
                         for step in ls_steps:
-                            split_policy.set_param_values(pre_opt_parameter + accum_grad * step)
+                            split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
                             if split_algo.mean_kl(all_data)[0] < split_algo.step_size:
-                                break'''
-                        split_policy.set_param_values(pre_opt_parameter + accum_grad * mask_split_flat + mask_share_flat*all_data_grad)
+                                break                          '''
+                        step=1
+
+                        split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
 
                         for j in range(task_size):
                             task_rewards[j] = np.mean(task_rewards[j])
 
                         print('reward for different tasks: ', task_rewards, reward)
-                        print('mean kl: ', split_algo.mean_kl(all_data))
+                        print('mean kl: ', split_algo.mean_kl(all_data), ' step size: ', step)
                         task_mean_kls = []
                         for j in range(task_size):
-                            task_mean_kls.append(split_algo.mean_kl(processed_task_data[j])[0])
+                            if len(processed_task_data[j]) == 0:
+                                task_mean_kls.append(0)
+                            else:
+                                task_mean_kls.append(split_algo.mean_kl(processed_task_data[j])[0])
                         print('mean kl for different tasks: ', task_mean_kls)
                         kl_div_curve.append(np.concatenate([split_algo.mean_kl(all_data), task_mean_kls]))
                     else:
