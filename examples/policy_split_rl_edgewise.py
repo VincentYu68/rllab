@@ -31,6 +31,7 @@ import os
 from rllab.misc import ext
 from rllab.misc.ext import sliced_fun
 from rllab.algos.trpo import TRPO
+from rllab.algos.trpo_mt import TRPO_MultiTask
 from rllab.algos.trpo_mpsel import TRPOMPSel
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.baselines.zero_baseline import ZeroBaseline
@@ -38,9 +39,13 @@ from rllab.envs.gym_env import GymEnv
 from gym import error, spaces
 from rllab.envs.normalized_env import normalize
 from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
+import random
 
 
-def get_gradient(algo, samples_data):
+def get_gradient(algo, samples_data, trpo_split = False):
+    if trpo_split:
+        return algo.get_gradient(samples_data)
+
     all_input_values = tuple(ext.extract(
         samples_data,
         "observations", "actions", "advantages"
@@ -63,18 +68,23 @@ if __name__ == '__main__':
     dartenv.avg_div = 0
     dartenv.split_task_test = True
 
-    hidden_size = (100,50,25)
-    batch_size = 30000
+    num_parallel = 4
+
+    hidden_size = (64, 64)
+    batch_size = 25000
+
+    pathlength = 500
 
     random_split = False
     prioritized_split = False
+    adaptive_sample = False
 
-    initialize_epochs = 100
+    initialize_epochs = 170
     grad_epochs = 30
-    test_epochs = 400
-    append = 'hopper_continuousfoot_smallrange_sharestd_blend_sd5_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    test_epochs = 200
+    append = 'hopper_split_test_4task_masked_grad_sd1_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
-    task_size = 2
+    task_size = 4
 
     reps = 1
     if random_split:
@@ -94,12 +104,14 @@ if __name__ == '__main__':
         append += '_accumulate_gradient'
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.5, 1.0]
+    split_percentages = [0.0, 0.3, 0.5, 1.0]
     learning_curves = []
+    kl_divergences = []
     for i in range(len(split_percentages)):
         learning_curves.append([])
+        kl_divergences.append([])
 
-    test_num = 1
+    test_num = 3
     performances = []
 
     diretory = 'data/trained/gradient_temp/rl_split_' + append
@@ -118,7 +130,8 @@ if __name__ == '__main__':
         dartenv.avg_div = 0
         dartenv.split_task_test = True
 
-        np.random.seed(testit*3+5)
+        np.random.seed(testit*3+1)
+        random.seed(testit*3+1)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -132,29 +145,36 @@ if __name__ == '__main__':
         if load_init_policy:
             policy = joblib.load(diretory + '/init_policy.pkl')
 
-        algo = TRPO(
+        algo = TRPO(#_MultiTask(
             env=env,
             policy=policy,
             baseline=baseline,
             batch_size=batch_size,
-            max_path_length=1000,
+            max_path_length=pathlength,
             n_itr=5,
 
             discount=0.995,
             step_size=0.01,
             gae_lambda=0.97,
+
+            #task_num=task_size,
         )
         algo.init_opt()
+
         from rllab.sampler import parallel_sampler
-        parallel_sampler.initialize(n_parallel=7)
+        parallel_sampler.initialize(n_parallel=num_parallel)
         algo.start_worker()
 
         if not load_init_policy:
             for i in range(initialize_epochs):
+                val_bf = np.copy(policy.get_param_values())
                 paths = algo.sampler.obtain_samples(0)
                 # if not split
                 samples_data = algo.sampler.process_samples(0, paths)
                 opt_data = algo.optimize_policy(0, samples_data)
+                pol_aft = (policy.get_param_values())
+                print(algo.mean_kl(samples_data))
+
                 print(dict(logger._tabular)['AverageReturn'])
             joblib.dump(policy, diretory + '/init_policy.pkl', compress=True)
 
@@ -178,7 +198,7 @@ if __name__ == '__main__':
                 for param in policy._mean_network.get_params():
                     cp.append(np.copy(param.get_value()))
                 net_weights.append(cp)
-                net_weight_values.append(policy.get_param_values())
+                net_weight_values.append(np.copy(policy.get_param_values()))
 
                 paths = algo.sampler.obtain_samples(0)
                 split_data.append(paths)
@@ -207,7 +227,7 @@ if __name__ == '__main__':
             for j in range(task_size):
                 algo.sampler.process_samples(0, task_paths[j])
                 samples_data = algo.sampler.process_samples(0, task_paths[j])
-                grad = get_gradient(algo, samples_data)
+                grad = get_gradient(algo, samples_data, False)
                 task_grads[j].append(grad)
 
         print('------- collected gradient info -------------')
@@ -278,6 +298,16 @@ if __name__ == '__main__':
                     else:
                         masks[split_metrics[i][0]][split_metrics[i][1]] = 1
 
+            mask_split_flat = np.array([])
+            for k in range(int((len(task_grads[0][0]) - 1)/2)):
+                for j in range(task_size):
+                    mask_split_flat = np.concatenate([mask_split_flat, np.array(masks[k*2]).flatten(), np.array(masks[k*2+1]).flatten()])
+            mask_share_flat = np.ones(len(mask_split_flat))
+            mask_share_flat -= mask_split_flat
+            mask_split_flat = np.concatenate([mask_split_flat, np.ones(dartenv.act_dim)])
+            mask_share_flat = np.concatenate([mask_share_flat, np.ones(dartenv.act_dim)])
+
+
             policy.set_param_values(init_param_value)
             if split_param_size != 0:
                 if dartenv.avg_div != task_size:
@@ -308,23 +338,26 @@ if __name__ == '__main__':
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
             
             new_batch_size = batch_size
-            if alternate_update and split_param_size != 0:
+            if (split_param_size != 0 and alternate_update) or adaptive_sample:
                 new_batch_size = int(batch_size / task_size)
-            split_algo = TRPO(
+            split_algo = TRPO(#_MultiTask(
                 env=env,
                 policy=split_policy,
                 baseline=split_baseline,
                 batch_size=new_batch_size,
-                max_path_length=1000,
+                max_path_length=pathlength,
                 n_itr=5,
 
                 discount=0.995,
                 step_size=0.01,
                 gae_lambda=0.97,
+
+                #task_num=task_size,
             )
             split_algo.init_opt()
 
-            parallel_sampler.initialize(n_parallel=7)
+            parallel_sampler.initialize(n_parallel=num_parallel)
+
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
@@ -335,13 +368,30 @@ if __name__ == '__main__':
             for rep in range(int(reps)):
                 split_policy.set_param_values(split_init_param)
                 learning_curve = []
+                kl_div_curve = []
                 for i in range(test_epochs):
                     # if not split
                     if split_param_size == 0:
-                        paths = split_algo.sampler.obtain_samples(0)
+                        if adaptive_sample:
+                            paths = []
+                            reward_paths = []
+                            for t in range(task_size):
+                                paths += split_algo.sampler.obtain_samples(0, t)
+                                reward_paths += split_algo.sampler.obtain_samples(0)
+                        else:
+                            paths = split_algo.sampler.obtain_samples(0)
                         samples_data = split_algo.sampler.process_samples(0, paths)
                         opt_data = split_algo.optimize_policy(0, samples_data)
-                        reward = float((dict(logger._tabular)['AverageReturn']))
+                        if not adaptive_sample:
+                            reward = float((dict(logger._tabular)['AverageReturn']))
+                        else:
+                            reward = 0
+                            for path in reward_paths:
+                                reward += np.sum(path["rewards"])
+                            reward /= len(reward_paths)
+                        kl_div_curve.append(split_algo.mean_kl(samples_data))
+                        print('reward: ', reward)
+                        print(split_algo.mean_kl(samples_data))
                     elif alternate_update:
                         reward = 0
                         total_traj = 0
@@ -369,7 +419,6 @@ if __name__ == '__main__':
                             task_rewards[taskid].append(np.sum(path['rewards']))
                         pre_opt_parameter = np.copy(split_policy.get_param_values())
 
-                        split_algo.sampler.process_samples(0, paths)
                         all_data = split_algo.sampler.process_samples(0, paths)
                         reward = float((dict(logger._tabular)['AverageReturn']))
                         split_algo.optimize_policy(0, all_data)
@@ -377,21 +426,42 @@ if __name__ == '__main__':
 
                         split_policy.set_param_values(pre_opt_parameter)
                         accum_grad = np.zeros(pre_opt_parameter.shape)
+                        processed_task_data = []
                         for j in range(task_size):
                             if len(task_paths[j]) == 0:
+                                processed_task_data.append([])
                                 continue
                             split_policy.set_param_values(pre_opt_parameter)
-                            split_algo.sampler.process_samples(0, task_paths[j])
-                            samples_data = split_algo.sampler.process_samples(0, task_paths[j])
+                            samples_data = split_algo.sampler.process_samples(0, task_paths[j], False)
+                            processed_task_data.append(samples_data)
                             split_algo.optimize_policy(0, samples_data)
                             accum_grad += split_policy.get_param_values() - pre_opt_parameter
-                        split_policy.set_param_values(pre_opt_parameter + accum_grad * split_percentage + (1-split_percentage)*all_data_grad)
+                        # do a line search to project the udpate onto the constraint manifold
+                        sum_grad = accum_grad * mask_split_flat + mask_share_flat*all_data_grad
+                        '''ls_steps = []
+                        for s in range(20):
+                            ls_steps.append(0.95**s)
+                        for step in ls_steps:
+                            split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
+                            if split_algo.mean_kl(all_data)[0] < split_algo.step_size:
+                                break                          '''
+                        step=1
+
+                        split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
 
                         for j in range(task_size):
                             task_rewards[j] = np.mean(task_rewards[j])
 
                         print('reward for different tasks: ', task_rewards, reward)
-                        print('mean kl: ', split_algo.mean_kl(all_data))
+                        print('mean kl: ', split_algo.mean_kl(all_data), ' step size: ', step)
+                        task_mean_kls = []
+                        for j in range(task_size):
+                            if len(processed_task_data[j]) == 0:
+                                task_mean_kls.append(0)
+                            else:
+                                task_mean_kls.append(split_algo.mean_kl(processed_task_data[j])[0])
+                        print('mean kl for different tasks: ', task_mean_kls)
+                        kl_div_curve.append(np.concatenate([split_algo.mean_kl(all_data), task_mean_kls]))
                     else:
                         paths = split_algo.sampler.obtain_samples(0)
                         reward = float((dict(logger._tabular)['AverageReturn']))
@@ -404,7 +474,7 @@ if __name__ == '__main__':
                             taskid = path['env_infos']['state_index'][-1]
                             task_paths[taskid].append(path)
                             task_rewards[taskid].append(np.sum(path['rewards']))
-                        pre_opt_parameter = split_policy.get_param_values()
+                        pre_opt_parameter = np.copy(split_policy.get_param_values())
                         # optimize the shared part
                         split_algo.sampler.process_samples(0, paths)
                         samples_data = split_algo.sampler.process_samples(0, paths)
@@ -449,8 +519,10 @@ if __name__ == '__main__':
                         print('reward for different tasks: ', task_rewards, reward)
 
                     learning_curve.append(reward)
+
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                 avg_learning_curve.append(learning_curve)
+                kl_divergences[split_id].append(kl_div_curve)
                 joblib.dump(split_policy, diretory + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
 
                 avg_error += float(reward)
@@ -470,8 +542,27 @@ if __name__ == '__main__':
             plt.legend(bbox_to_anchor=(0.3, 0.3),
             bbox_transform=plt.gcf().transFigure, numpoints=1)
             plt.savefig(diretory + '/split_learning_curves.png')
-        performances.append(pred_list)
 
+            if len(kl_divergences[0]) > 0:
+                print('kldiv:', kl_divergences)
+                avg_kl_div = []
+                for i in range(len(kl_divergences)):
+                    if len(kl_divergences[i]) > 0:
+                        avg_kl_div.append(np.mean(kl_divergences[i], axis=0))
+                print(avg_kl_div)
+                for i in range(len(avg_kl_div)):
+                    one_perc_kl_div = np.array(avg_kl_div[i])
+                    print(i, one_perc_kl_div)
+                    plt.figure()
+                    for j in range(len(one_perc_kl_div[0])):
+                        append = 'task%d' % j
+                        if j == 0:
+                            append = 'all'
+                        plt.plot(one_perc_kl_div[:, j], label=str(split_percentages[i]) + append, alpha=0.3)
+                    plt.legend(bbox_to_anchor=(0.3, 0.3),
+                               bbox_transform=plt.gcf().transFigure, numpoints=1)
+                    plt.savefig(diretory + '/kl_div_%s.png' % str(split_percentages[i]))
+        performances.append(pred_list)
 
     np.savetxt(diretory + '/performance.txt', performances)
     plt.figure()
@@ -485,8 +576,25 @@ if __name__ == '__main__':
     for i in range(len(split_percentages)):
         plt.plot(avg_learning_curve[i], label=str(split_percentages[i]))
     plt.legend(bbox_to_anchor=(0.3, 0.3),
-    bbox_transform=plt.gcf().transFigure, numpoints=1)
+               bbox_transform=plt.gcf().transFigure, numpoints=1)
     plt.savefig(diretory + '/split_learning_curves.png')
+    np.savetxt(diretory + '/learning_curves.txt', avg_learning_curve)
+
+    if len(kl_divergences[0]) > 0:
+        avg_kl_div = []
+        for i in range(len(kl_divergences)):
+            avg_kl_div.append(np.mean(kl_divergences[i], axis=0))
+        for i in range(len(avg_kl_div)):
+            one_perc_kl_div = np.array(avg_kl_div[i])
+            plt.figure()
+            for j in range(len(one_perc_kl_div[0])):
+                append = 'task%d' % j
+                if j == 0:
+                    append = 'all'
+                plt.plot(one_perc_kl_div[:, j], label=str(split_percentages[i]) + append, alpha=0.3)
+            plt.legend(bbox_to_anchor=(0.3, 0.3),
+                       bbox_transform=plt.gcf().transFigure, numpoints=1)
+            plt.savefig(diretory + '/kl_div_%s.png' % str(split_percentages[i]))
 
     plt.close('all')
 

@@ -13,11 +13,11 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartCartPoleSwingUp-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartWalker3d-v1", record_log=False, record_video=False))
 
     mp_dim = 1
     #policy_pre = joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/policy_cont.pkl')
-    split_dim = 3
+    split_dim = 0
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
@@ -69,9 +69,9 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=10000,
+        batch_size=25000,
         max_path_length=env.horizon,
-        n_itr=100,
+        n_itr=300,
 
         discount=0.995,
         step_size=0.01,
@@ -88,13 +88,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=2,
+    n_parallel=4,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=7,
-    exp_name='cartpole_swingup_sd7_vanilla',
+    exp_name='walker3d-2d',
 
     # plot=True,
 )

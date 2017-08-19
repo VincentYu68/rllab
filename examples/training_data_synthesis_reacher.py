@@ -29,10 +29,10 @@ class IK_Task:
         return vec.dot(jac)
 
 if __name__ == '__main__':
-    data_set_name = 'reacher_task1.pkl'
+    data_set_name = 'reacher_task2.pkl'
     data_set_path = 'data/trained/supervised_reacher/' + data_set_name
 
-    data_set_size = 10000
+    data_set_size = 15000
 
     env = gym.make('DartReacher3d-v1')
     dart_world = env.env.dart_world
@@ -51,7 +51,8 @@ if __name__ == '__main__':
     X = []
     Y = []
     while len(X) <  data_set_size:
-        target = np.random.uniform(0.05, 0.25, 3)
+        target = np.random.uniform(-0.5, 0.5, 3)
+        target[1] = np.abs(target[1])
         iktask.set_target(target)
 
         x0 = np.random.uniform(joint_limits[:, 0], joint_limits[:, 1], len(joint_limits))
