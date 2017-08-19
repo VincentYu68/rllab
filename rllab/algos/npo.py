@@ -133,7 +133,7 @@ class NPO(BatchPolopt):
         all_input_values += tuple(state_info_list) + tuple(dist_info_list)
         if self.policy.recurrent:
             all_input_values += (samples_data["valids"],)
-        return self.optimizer.constraint_val(all_input_values)
+        return [self.optimizer.constraint_val(all_input_values)]
 
     @overrides
     def get_itr_snapshot(self, itr, samples_data):
