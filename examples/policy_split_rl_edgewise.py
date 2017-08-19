@@ -68,23 +68,23 @@ if __name__ == '__main__':
     dartenv.avg_div = 0
     dartenv.split_task_test = True
 
-    num_parallel = 4
+    num_parallel = 7
 
-    hidden_size = (64, 64)
-    batch_size = 25000
+    hidden_size = (128, 64)
+    batch_size = 30000
 
-    pathlength = 500
+    pathlength = 1000
 
     random_split = False
     prioritized_split = False
     adaptive_sample = False
 
-    initialize_epochs = 170
+    initialize_epochs = 270
     grad_epochs = 30
-    test_epochs = 200
-    append = 'hopper_split_test_4task_masked_grad_sd1_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    test_epochs = 300
+    append = 'hopper_split_test_3models_masked_grad_sd1_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
-    task_size = 4
+    task_size = 5
 
     reps = 1
     if random_split:
@@ -163,6 +163,7 @@ if __name__ == '__main__':
 
         from rllab.sampler import parallel_sampler
         parallel_sampler.initialize(n_parallel=num_parallel)
+        parallel_sampler.set_seed(0)
         algo.start_worker()
 
         if not load_init_policy:
@@ -357,6 +358,7 @@ if __name__ == '__main__':
             split_algo.init_opt()
 
             parallel_sampler.initialize(n_parallel=num_parallel)
+            parallel_sampler.set_seed(0)
 
             split_algo.start_worker()
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
