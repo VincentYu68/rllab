@@ -194,15 +194,17 @@ class TRPO_MultiTask(NPO):
         logger.record_tabular('dLoss', loss_before - loss_after)
 
         # update the weights for the kl divergence
-        '''kl_divs = []
+        kl_divs = []
         for constraint in self.f_constraints:
             kl_divs.append(sliced_fun(constraint, 1)(all_input_values))
         for i in range(1, len(kl_divs)):
-            if kl_divs[i] < 0.6*self.step_size:
-                self.kl_weights[i-1] /= 1.5
-            if kl_divs[i] > 1.2*self.step_size:
-                self.kl_weights[i-1] *= 1.5
-        self.kl_weights /= np.sum(self.kl_weights)
+            if kl_divs[i] < 0.2*self.step_size:
+                self.kl_weights[i-1] /= 1.0
+            elif kl_divs[i] > 1.0*self.step_size:
+                self.kl_weights[i-1] *= 1.2
+            else: # move 10% towards 1
+                self.kl_weights[i-1] = self.kl_weights[i-1] + 0.1*(1-self.kl_weights[i-1])
+        '''self.kl_weights /= np.sum(self.kl_weights)
         self.kl_weights *= self.task_num'''
         print('Current kl divergence weight: ', self.kl_weights)
 

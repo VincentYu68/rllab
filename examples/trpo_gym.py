@@ -13,7 +13,7 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartCartPoleSwingUp-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartWalker3d-v1"))#, record_log=False, record_video=False))
 
     mp_dim = 1
     #policy_pre = joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/policy_cont.pkl')
@@ -37,6 +37,9 @@ def run_task(*_):
         #split_units=joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/split_scheme_backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start_orth_0.5.pkl'),
         #split_init_net=policy_pre,
     )
+
+    #policy = joblib.load('data/local/experiment/walker3d-2d_cont/policy.pkl')
+
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
     '''policy = CategoricalMLPPolicy(
         env_spec=env.spec,
@@ -69,9 +72,9 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=10000,
+        batch_size=30000,
         max_path_length=env.horizon,
-        n_itr=100,
+        n_itr=400,
 
         discount=0.995,
         step_size=0.01,
@@ -94,7 +97,7 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=7,
-    exp_name='cartpole_swingup_sd7_vanilla',
+    exp_name='walker3d-2d_delta_action',
 
     # plot=True,
 )

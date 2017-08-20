@@ -22,7 +22,7 @@ class Sampler(object):
         """
         raise NotImplementedError
 
-    def process_samples(self, itr, paths):
+    def process_samples(self, itr, paths, update_baseline = True):
         """
         Return processed sample data (typically a dictionary of concatenated tensors) based on the collected paths.
         :param itr: Iteration number.
@@ -45,7 +45,7 @@ class BaseSampler(Sampler):
         """
         self.algo = algo
 
-    def process_samples(self, itr, paths):
+    def process_samples(self, itr, paths, update_baseline = True):
         baselines = []
         returns = []
 
@@ -184,12 +184,13 @@ class BaseSampler(Sampler):
                 paths=paths,
             )
 
-        logger.log("fitting baseline...")
-        if hasattr(self.algo.baseline, 'fit_with_samples'):
-            self.algo.baseline.fit_with_samples(paths, samples_data)
-        else:
-            self.algo.baseline.fit(paths)
-        logger.log("fitted")
+        if update_baseline:
+            logger.log("fitting baseline...")
+            if hasattr(self.algo.baseline, 'fit_with_samples'):
+                self.algo.baseline.fit_with_samples(paths, samples_data)
+            else:
+                self.algo.baseline.fit(paths)
+            logger.log("fitted")
 
         logger.record_tabular('Iteration', itr)
         logger.record_tabular('AverageDiscountedReturn',
