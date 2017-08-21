@@ -61,30 +61,23 @@ def get_gradient(algo, samples_data, trpo_split = False):
     return grad
 
 if __name__ == '__main__':
-    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
-    dartenv = env._wrapped_env.env.env
-    if env._wrapped_env.monitoring:
-        dartenv = dartenv.env
-    dartenv.avg_div = 0
-    dartenv.split_task_test = True
+    num_parallel = 7
 
-    num_parallel = 4
-
-    hidden_size = (64, 64)
-    batch_size = 15000
-    pathlength = 500
+    hidden_size = (128, 64)
+    batch_size = 20000
+    pathlength = 1000
 
 
     random_split = False
     prioritized_split = False
     adaptive_sample = False
 
-    initialize_epochs = 120
-    grad_epochs = 30
-    test_epochs = 150
-    append = 'hopper_split_test_4task_masked_grad_sd0_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    initialize_epochs = 0
+    grad_epochs = 1
+    test_epochs = 100
+    append = 'hopper_split_test_sharestd_masked_grad_sd2_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
-    task_size = 4
+    task_size = 2
 
     reps = 1
     if random_split:
@@ -98,13 +91,16 @@ if __name__ == '__main__':
     alternate_update = False
     accumulate_gradient = True
 
+    imbalance_sample = True
+    sample_ratio = [0.05, 0.95]
+
     if alternate_update:
         append += '_alternate_update'
     if accumulate_gradient:
         append += '_accumulate_gradient'
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 0.3, 1.0]
+    split_percentages = [1.0]
 
     learning_curves = []
     kl_divergences = []
@@ -112,7 +108,7 @@ if __name__ == '__main__':
         learning_curves.append([])
         kl_divergences.append([])
 
-    test_num = 2
+    test_num = 1
     performances = []
 
     diretory = 'data/trained/gradient_temp/rl_split_' + append
@@ -128,11 +124,9 @@ if __name__ == '__main__':
         dartenv = env._wrapped_env.env.env
         if env._wrapped_env.monitoring:
             dartenv = dartenv.env
-        dartenv.avg_div = 0
-        dartenv.split_task_test = True
 
-        np.random.seed(testit*3+3)
-        random.seed(testit*3+3)
+        np.random.seed(testit*3+2)
+        random.seed(testit*3+2)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -164,13 +158,30 @@ if __name__ == '__main__':
 
         from rllab.sampler import parallel_sampler
         parallel_sampler.initialize(n_parallel=num_parallel)
+        parallel_sampler.set_seed(0)
 
         algo.start_worker()
 
         if not load_init_policy:
             for i in range(initialize_epochs):
                 val_bf = np.copy(policy.get_param_values())
-                paths = algo.sampler.obtain_samples(0)
+                if adaptive_sample:
+                    paths = []
+                    reward_paths = []
+                    for t in range(task_size):
+                        paths += algo.sampler.obtain_samples(0, t)
+                        reward_paths += algo.sampler.obtain_samples(0)
+                elif imbalance_sample:
+                    paths = []
+                    reward_paths = []
+                    for t in range(task_size):
+                        algo.batch_size = batch_size * sample_ratio[t]
+                        task_path = algo.sampler.obtain_samples(0, t)
+                        paths += task_path
+                        if t == 0:
+                            reward_paths += task_path
+                else:
+                    paths = algo.sampler.obtain_samples(0)
                 # if not split
                 samples_data = algo.sampler.process_samples(0, paths)
                 opt_data = algo.optimize_policy(0, samples_data)
@@ -202,10 +213,25 @@ if __name__ == '__main__':
                 net_weights.append(cp)
                 net_weight_values.append(np.copy(policy.get_param_values()))
 
-                paths = algo.sampler.obtain_samples(0)
+                if adaptive_sample:
+                    paths = []
+                    reward_paths = []
+                    for t in range(task_size):
+                        paths += algo.sampler.obtain_samples(0, t)
+                        reward_paths += algo.sampler.obtain_samples(0)
+                elif imbalance_sample:
+                    paths = []
+                    reward_paths = []
+                    for t in range(task_size):
+                        algo.batch_size = batch_size * sample_ratio[t]
+                        task_path = algo.sampler.obtain_samples(0, t)
+                        paths += task_path
+                        if t == 0:
+                            reward_paths += task_path
+                else:
+                    paths = algo.sampler.obtain_samples(0)
                 split_data.append(paths)
 
-                algo.sampler.process_samples(0, paths)
                 samples_data = algo.sampler.process_samples(0, paths)
                 opt_data = algo.optimize_policy(0, samples_data)
             joblib.dump(split_data, diretory + '/split_data.pkl', compress=True)
@@ -226,9 +252,9 @@ if __name__ == '__main__':
                 taskid = path['env_infos']['state_index'][-1]
                 task_paths[taskid].append(path)
 
+            algo.sampler.process_samples(0, split_data[i])
             for j in range(task_size):
-                algo.sampler.process_samples(0, task_paths[j])
-                samples_data = algo.sampler.process_samples(0, task_paths[j])
+                samples_data = algo.sampler.process_samples(0, task_paths[j], False)
                 grad = get_gradient(algo, samples_data, False)
                 task_grads[j].append(grad)
 
@@ -306,8 +332,8 @@ if __name__ == '__main__':
                     mask_split_flat = np.concatenate([mask_split_flat, np.array(masks[k*2]).flatten(), np.array(masks[k*2+1]).flatten()])
             mask_share_flat = np.ones(len(mask_split_flat))
             mask_share_flat -= mask_split_flat
-            mask_split_flat = np.concatenate([mask_split_flat, np.ones(dartenv.act_dim)])
-            mask_share_flat = np.concatenate([mask_share_flat, np.ones(dartenv.act_dim)])
+            mask_split_flat = np.concatenate([mask_split_flat, np.ones(dartenv.act_dim*task_size)])
+            mask_share_flat = np.concatenate([mask_share_flat, np.zeros(dartenv.act_dim*task_size)])
 
 
             policy.set_param_values(init_param_value)
@@ -323,7 +349,7 @@ if __name__ == '__main__':
                             observation_space=env.observation_space,
                             action_space=env.action_space,
                         )
-                print(masks[0].shape)
+
                 split_policy = GaussianMLPPolicy(
                     env_spec=env.spec,
                     # The neural network policy should have two hidden layers, each with 32 hidden units.
@@ -359,8 +385,13 @@ if __name__ == '__main__':
             split_algo.init_opt()
 
             parallel_sampler.initialize(n_parallel=num_parallel)
+            parallel_sampler.set_seed(0)
 
             split_algo.start_worker()
+            if split_param_size != 0:
+                parallel_sampler.update_env_params({'avg_div': dartenv.avg_div, 'obs_dim': dartenv.obs_dim,
+                                                    'observation_space': dartenv.observation_space})
+
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
             split_init_param = np.copy(split_policy.get_param_values())
@@ -380,17 +411,26 @@ if __name__ == '__main__':
                             for t in range(task_size):
                                 paths += split_algo.sampler.obtain_samples(0, t)
                                 reward_paths += split_algo.sampler.obtain_samples(0)
+                        elif imbalance_sample:
+                            paths = []
+                            reward_paths = []
+                            for t in range(task_size):
+                                split_algo.batch_size = batch_size * sample_ratio[t]
+                                task_path = split_algo.sampler.obtain_samples(0, t)
+                                paths += task_path
+                                if t == 0:
+                                    reward_paths += task_path
                         else:
                             paths = split_algo.sampler.obtain_samples(0)
                         samples_data = split_algo.sampler.process_samples(0, paths)
                         opt_data = split_algo.optimize_policy(0, samples_data)
-                        if not adaptive_sample:
-                            reward = float((dict(logger._tabular)['AverageReturn']))
-                        else:
+                        if adaptive_sample or imbalance_sample:
                             reward = 0
                             for path in reward_paths:
                                 reward += np.sum(path["rewards"])
                             reward /= len(reward_paths)
+                        else:
+                            reward = float((dict(logger._tabular)['AverageReturn']))
                         kl_div_curve.append(split_algo.mean_kl(samples_data))
                         print('reward: ', reward)
                         print(split_algo.mean_kl(samples_data))
@@ -409,7 +449,23 @@ if __name__ == '__main__':
                         reward /= total_traj
                         print('reward for different tasks: ', task_rewards, reward)
                     elif accumulate_gradient:
-                        paths = split_algo.sampler.obtain_samples(0)
+                        if adaptive_sample:
+                            paths = []
+                            reward_paths = []
+                            for t in range(task_size):
+                                paths += split_algo.sampler.obtain_samples(0, t)
+                                reward_paths += split_algo.sampler.obtain_samples(0)
+                        elif imbalance_sample:
+                            paths = []
+                            reward_paths = []
+                            for t in range(task_size):
+                                split_algo.batch_size = batch_size * sample_ratio[t]
+                                task_path = split_algo.sampler.obtain_samples(0, t)
+                                paths += task_path
+                                if t == 0:
+                                    reward_paths += task_path
+                        else:
+                            paths = split_algo.sampler.obtain_samples(0)
                         task_paths = []
                         task_rewards = []
                         for j in range(task_size):
@@ -422,7 +478,13 @@ if __name__ == '__main__':
                         pre_opt_parameter = np.copy(split_policy.get_param_values())
 
                         all_data = split_algo.sampler.process_samples(0, paths)
-                        reward = float((dict(logger._tabular)['AverageReturn']))
+                        if adaptive_sample or imbalance_sample:
+                            reward = 0
+                            for path in reward_paths:
+                                reward += np.sum(path["rewards"])
+                            reward /= len(reward_paths)
+                        else:
+                            reward = float((dict(logger._tabular)['AverageReturn']))
                         split_algo.optimize_policy(0, all_data)
                         all_data_grad = split_policy.get_param_values() - pre_opt_parameter
 

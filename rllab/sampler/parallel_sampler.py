@@ -160,6 +160,12 @@ def _worker_update_dyn(G, paramname, newval, scope):
     G = _get_scoped_G(G, scope)
     G.ensemble_dynamics[paramname] = newval
 
+def update_env_params(env_params, scope=None,):
+    singleton_pool.run_each(
+        _worker_set_env_params,
+        [(env_params, scope)] * singleton_pool.n_parallel
+    )
+
 def sample_paths(
         policy_params,
         max_samples,

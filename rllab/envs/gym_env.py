@@ -55,7 +55,7 @@ class NoVideoSchedule(object):
         return False
 
 
-class GymEnv(Env):#, Serializable):
+class GymEnv(Env, Serializable):
     def __init__(self, env_name, record_video=True, video_schedule=None, log_dir=None, record_log=True,
                  force_reset=False):
         if log_dir is None:
@@ -63,7 +63,7 @@ class GymEnv(Env):#, Serializable):
                 logger.log("Warning: skipping Gym environment monitoring since snapshot_dir not configured.")
             else:
                 log_dir = os.path.join(logger.get_snapshot_dir(), "gym_log")
-        #Serializable.quick_init(self, locals())
+        Serializable.quick_init(self, locals())
 
         env = gym.envs.make(env_name)
         self.env = env
@@ -131,3 +131,12 @@ class GymEnv(Env):#, Serializable):
 
     ***************************
                 """ % self._log_dir)
+
+    def set_param_values(self, env_params):
+        dartenv = self.env.env
+        if self.monitoring:
+            dartenv = dartenv.env
+        for k,v in env_params.items():
+            if hasattr(dartenv, k):
+                setattr(dartenv, k, v)
+

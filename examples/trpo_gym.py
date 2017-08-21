@@ -13,7 +13,7 @@ import joblib
 import numpy as np
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker3d-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
 
     mp_dim = 1
     #policy_pre = joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/policy_cont.pkl')
@@ -22,7 +22,7 @@ def run_task(*_):
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64, 64),
+        hidden_sizes=(128, 64),
         #append_dim=2,
 
         net_mode=0,
@@ -69,9 +69,9 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=25000,
+        batch_size=20000,
         max_path_length=env.horizon,
-        n_itr=300,
+        n_itr=100,
 
         discount=0.995,
         step_size=0.01,
@@ -93,8 +93,8 @@ run_experiment_lite(
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=7,
-    exp_name='walker3d-2d',
+    seed=1,
+    exp_name='hopper_fric1_19ktest',
 
     # plot=True,
 )
