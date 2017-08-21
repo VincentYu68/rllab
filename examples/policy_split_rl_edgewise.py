@@ -62,14 +62,11 @@ def get_gradient(algo, samples_data, trpo_split = False):
     return grad
 
 if __name__ == '__main__':
-    num_parallel = 7
+    num_parallel = 2
 
     hidden_size = (128, 64)
     batch_size = 20000
     pathlength = 1000
-
-    pathlength = 1000
-
 
     random_split = False
     prioritized_split = False
@@ -94,7 +91,7 @@ if __name__ == '__main__':
     alternate_update = False
     accumulate_gradient = True
 
-    imbalance_sample = True
+    imbalance_sample = False
     sample_ratio = [0.05, 0.95]
 
     if alternate_update:
@@ -128,8 +125,8 @@ if __name__ == '__main__':
         if env._wrapped_env.monitoring:
             dartenv = dartenv.env
 
-        np.random.seed(testit*3+2)
-        random.seed(testit*3+2)
+        np.random.seed(testit*3+1)
+        random.seed(testit*3+1)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
