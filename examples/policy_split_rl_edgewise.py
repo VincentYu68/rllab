@@ -62,17 +62,12 @@ def get_gradient(algo, samples_data, trpo_split = False):
     return grad
 
 if __name__ == '__main__':
-    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
-    dartenv = env._wrapped_env.env.env
-    if env._wrapped_env.monitoring:
-        dartenv = dartenv.env
-    dartenv.avg_div = 0
-    dartenv.split_task_test = True
-
-    num_parallel = 2
+    num_parallel = 7
 
     hidden_size = (128, 64)
     batch_size = 20000
+    pathlength = 1000
+
     pathlength = 1000
 
 
@@ -82,8 +77,8 @@ if __name__ == '__main__':
 
     initialize_epochs = 0
     grad_epochs = 1
-    test_epochs = 200
-    append = 'hopper_split_test_imbalance_sample_masked_grad_sd2_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    test_epochs = 100
+    append = 'hopper_split_test_sharestd_masked_grad_sd2_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     task_size = 2
 
@@ -116,7 +111,7 @@ if __name__ == '__main__':
         learning_curves.append([])
         kl_divergences.append([])
 
-    test_num = 3
+    test_num = 1
     performances = []
 
     diretory = 'data/trained/gradient_temp/rl_split_' + append
@@ -132,8 +127,6 @@ if __name__ == '__main__':
         dartenv = env._wrapped_env.env.env
         if env._wrapped_env.monitoring:
             dartenv = dartenv.env
-        dartenv.avg_div = 0
-        dartenv.split_task_test = True
 
         np.random.seed(testit*3+2)
         random.seed(testit*3+2)
@@ -175,7 +168,6 @@ if __name__ == '__main__':
         if not load_init_policy:
             for i in range(initialize_epochs):
                 print('------ Iter ',i,' in Init Training --------')
-                val_bf = np.copy(policy.get_param_values())
                 if adaptive_sample:
                     paths = []
                     reward_paths = []
@@ -360,7 +352,7 @@ if __name__ == '__main__':
                             observation_space=env.observation_space,
                             action_space=env.action_space,
                         )
-                print(masks[0].shape)
+
                 split_policy = GaussianMLPPolicy(
                     env_spec=env.spec,
                     # The neural network policy should have two hidden layers, each with 32 hidden units.
@@ -399,6 +391,10 @@ if __name__ == '__main__':
             parallel_sampler.set_seed(0)
 
             split_algo.start_worker()
+            if split_param_size != 0:
+                parallel_sampler.update_env_params({'avg_div': dartenv.avg_div, 'obs_dim': dartenv.obs_dim,
+                                                    'observation_space': dartenv.observation_space})
+
             print('Network parameter size: ', total_param_size, len(split_policy.get_param_values()))
 
             split_init_param = np.copy(split_policy.get_param_values())
