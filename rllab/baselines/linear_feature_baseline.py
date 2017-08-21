@@ -21,7 +21,7 @@ class LinearFeatureBaseline(Baseline):
         o = np.clip(path["observations"], -10, 10)
         l = len(path["rewards"])
         al = np.arange(l).reshape(-1, 1) / 100.0
-        if 1==2 and len(o.shape) == 2 and self.additional_dim > 0:
+        if len(o.shape) == 2 and self.additional_dim > 0:
             single_o = o[:, 0:o.shape[1] -self.additional_dim]
             split_vec = o[:, o.shape[1] -self.additional_dim:]
             stack_o = np.hstack([single_o, single_o**2, al, al ** 2, al ** 3, np.ones((l, 1))]*self.additional_dim)
