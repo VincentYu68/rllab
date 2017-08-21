@@ -67,6 +67,7 @@ if __name__ == '__main__':
     batch_size = 20000
     pathlength = 1000
 
+    pathlength = 1000
 
     random_split = False
     prioritized_split = False
@@ -164,7 +165,6 @@ if __name__ == '__main__':
 
         if not load_init_policy:
             for i in range(initialize_epochs):
-                val_bf = np.copy(policy.get_param_values())
                 if adaptive_sample:
                     paths = []
                     reward_paths = []
@@ -364,7 +364,7 @@ if __name__ == '__main__':
                 split_policy = copy.deepcopy(policy)
 
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
-
+            
             new_batch_size = batch_size
             if (split_param_size != 0 and alternate_update) or adaptive_sample:
                 new_batch_size = int(batch_size / task_size)
@@ -488,6 +488,7 @@ if __name__ == '__main__':
                         split_algo.optimize_policy(0, all_data)
                         all_data_grad = split_policy.get_param_values() - pre_opt_parameter
 
+                        split_policy.set_param_values(pre_opt_parameter)
                         accum_grad = np.zeros(pre_opt_parameter.shape)
                         processed_task_data = []
                         for j in range(task_size):
@@ -656,8 +657,8 @@ if __name__ == '__main__':
                     append = 'all'
                 plt.plot(one_perc_kl_div[:, j], label=str(split_percentages[i]) + append, alpha=0.3)
             plt.legend(bbox_to_anchor=(0.3, 0.3),
-                       bbox_transform=plt.gcf().transFigure, numpoints=1)
-            plt.savefig(diretory + '/kl_div_%s.png' % str(split_percentages[i]))
+            bbox_transform=plt.gcf().transFigure, numpoints=1)
+            plt.savefig(diretory + '/kl_div_%s.png'%str(split_percentages[i]))
 
     plt.close('all')
 

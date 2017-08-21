@@ -37,6 +37,9 @@ def run_task(*_):
         #split_units=joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/split_scheme_backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start_orth_0.5.pkl'),
         #split_init_net=policy_pre,
     )
+
+    #policy = joblib.load('data/local/experiment/walker3d-2d_cont/policy.pkl')
+
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
     '''policy = CategoricalMLPPolicy(
         env_spec=env.spec,
@@ -72,6 +75,7 @@ def run_task(*_):
         batch_size=20000,
         max_path_length=env.horizon,
         n_itr=100,
+
 
         discount=0.995,
         step_size=0.01,
