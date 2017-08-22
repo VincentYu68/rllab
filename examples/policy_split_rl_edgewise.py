@@ -67,16 +67,14 @@ if __name__ == '__main__':
     batch_size = 20000
     pathlength = 1000
 
-    pathlength = 1000
-
     random_split = False
     prioritized_split = False
     adaptive_sample = False
 
     initialize_epochs = 0
     grad_epochs = 1
-    test_epochs = 100
-    append = 'hopper_split_test_sharestd_masked_grad_sd2_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    test_epochs = 200
+    append = 'hopper_split_test_torso01_specbuiltinbaseline_masked_grad_sd0_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     task_size = 2
 
@@ -92,8 +90,8 @@ if __name__ == '__main__':
     alternate_update = False
     accumulate_gradient = True
 
-    imbalance_sample = True
-    sample_ratio = [0.05, 0.95]
+    imbalance_sample = False
+    sample_ratio = [0.95, 0.05]
 
     if alternate_update:
         append += '_alternate_update'
@@ -101,7 +99,7 @@ if __name__ == '__main__':
         append += '_accumulate_gradient'
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [1.0]
+    split_percentages = [0.0, 1.0]
 
     learning_curves = []
     kl_divergences = []
@@ -126,8 +124,8 @@ if __name__ == '__main__':
         if env._wrapped_env.monitoring:
             dartenv = dartenv.env
 
-        np.random.seed(testit*3+2)
-        random.seed(testit*3+2)
+        np.random.seed(testit*3+0)
+        random.seed(testit*3+0)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -136,7 +134,8 @@ if __name__ == '__main__':
             # append_dim=2,
             net_mode=0,
         )
-        baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
+
+        baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=task_size)
 
         if load_init_policy:
             policy = joblib.load(diretory + '/init_policy.pkl')
@@ -165,6 +164,7 @@ if __name__ == '__main__':
 
         if not load_init_policy:
             for i in range(initialize_epochs):
+                print('------ Iter ',i,' in Init Training --------')
                 if adaptive_sample:
                     paths = []
                     reward_paths = []
@@ -363,7 +363,7 @@ if __name__ == '__main__':
             else:
                 split_policy = copy.deepcopy(policy)
 
-            split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
+            split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=task_size)
             
             new_batch_size = batch_size
             if (split_param_size != 0 and alternate_update) or adaptive_sample:
@@ -440,7 +440,7 @@ if __name__ == '__main__':
                         task_rewards = []
                         for j in range(task_size):
                             paths = split_algo.sampler.obtain_samples(0, j)
-                            split_algo.sampler.process_samples(0, paths)
+                            #split_algo.sampler.process_samples(0, paths)
                             samples_data = split_algo.sampler.process_samples(0, paths)
                             opt_data = split_algo.optimize_policy(0, samples_data)
                             reward += float((dict(logger._tabular)['AverageReturn'])) * float((dict(logger._tabular)['NumTrajs']))
@@ -477,17 +477,7 @@ if __name__ == '__main__':
                             task_rewards[taskid].append(np.sum(path['rewards']))
                         pre_opt_parameter = np.copy(split_policy.get_param_values())
 
-                        all_data = split_algo.sampler.process_samples(0, paths)
-                        if adaptive_sample or imbalance_sample:
-                            reward = 0
-                            for path in reward_paths:
-                                reward += np.sum(path["rewards"])
-                            reward /= len(reward_paths)
-                        else:
-                            reward = float((dict(logger._tabular)['AverageReturn']))
-                        split_algo.optimize_policy(0, all_data)
-                        all_data_grad = split_policy.get_param_values() - pre_opt_parameter
-
+                        # compute the split gradient first
                         split_policy.set_param_values(pre_opt_parameter)
                         accum_grad = np.zeros(pre_opt_parameter.shape)
                         processed_task_data = []
@@ -496,12 +486,28 @@ if __name__ == '__main__':
                                 processed_task_data.append([])
                                 continue
                             split_policy.set_param_values(pre_opt_parameter)
+                            # split_algo.sampler.process_samples(0, task_paths[j])
                             samples_data = split_algo.sampler.process_samples(0, task_paths[j], False)
                             processed_task_data.append(samples_data)
                             split_algo.optimize_policy(0, samples_data)
+                            # if j == 1:
                             accum_grad += split_policy.get_param_values() - pre_opt_parameter
+
+                        # compute the gradient together
+                        split_policy.set_param_values(pre_opt_parameter)
+                        all_data = split_algo.sampler.process_samples(0, paths)
+                        if adaptive_sample or imbalance_sample:
+                            reward = 0
+                            for path in reward_paths:
+                                reward += np.sum(path["rewards"])
+                            reward /= len(reward_paths)
+                        else:
+                            reward = float((dict(logger._tabular)['AverageReturn']))
+                        #split_algo.optimize_policy(0, all_data)
+                        #all_data_grad = split_policy.get_param_values() - pre_opt_parameter
+
                         # do a line search to project the udpate onto the constraint manifold
-                        sum_grad = accum_grad * mask_split_flat + mask_share_flat*all_data_grad
+                        sum_grad = accum_grad# * mask_split_flat + mask_share_flat*all_data_grad
                         '''ls_steps = []
                         for s in range(20):
                             ls_steps.append(0.95**s)

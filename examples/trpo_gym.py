@@ -62,7 +62,7 @@ def run_task(*_):
             policy.get_params(trainable=True)[paramid].set_value(params[paramid].get_value(borrow=True))
     '''
 
-    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=split_dim*0)
+    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
     #policy = params['policy']
     #baseline = params['baseline']
@@ -74,7 +74,7 @@ def run_task(*_):
 
         batch_size=20000,
         max_path_length=env.horizon,
-        n_itr=100,
+        n_itr=200,
 
 
         discount=0.995,
@@ -98,7 +98,7 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    exp_name='hopper_fric1_19ktest',
+    exp_name='hopper_torso01_20ktest_sd1_mixbaseline',
 
     # plot=True,
 )
