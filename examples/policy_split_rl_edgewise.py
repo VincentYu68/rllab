@@ -62,7 +62,7 @@ def get_gradient(algo, samples_data, trpo_split = False):
     return grad
 
 if __name__ == '__main__':
-    num_parallel = 2
+    num_parallel = 7
 
     hidden_size = (128, 64)
     batch_size = 20000
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     initialize_epochs = 0
     grad_epochs = 1
     test_epochs = 200
-    append = 'hopper_split_test_torso01_specbuiltinbaseline_masked_grad_sd0_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    append = 'hopper_split_test_fric01_specbuiltinbaseline_masked_grad_sd0_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     task_size = 2
 
@@ -183,7 +183,6 @@ if __name__ == '__main__':
                             reward_paths += task_path
                 else:
                     paths = algo.sampler.obtain_samples(0)
-                # if not split
                 samples_data = algo.sampler.process_samples(0, paths)
                 opt_data = algo.optimize_policy(0, samples_data)
                 pol_aft = (policy.get_param_values())
@@ -253,11 +252,11 @@ if __name__ == '__main__':
                 taskid = path['env_infos']['state_index'][-1]
                 task_paths[taskid].append(path)
 
-            algo.sampler.process_samples(0, split_data[i])
             for j in range(task_size):
                 samples_data = algo.sampler.process_samples(0, task_paths[j], False)
                 grad = get_gradient(algo, samples_data, False)
                 task_grads[j].append(grad)
+            algo.sampler.process_samples(0, split_data[i])
 
         print('------- collected gradient info -------------')
 
@@ -497,7 +496,7 @@ if __name__ == '__main__':
                                 processed_task_data.append([])
                                 continue
                             split_policy.set_param_values(pre_opt_parameter)
-                            # split_algo.sampler.process_samples(0, task_paths[j])
+                            #split_algo.sampler.process_samples(0, task_paths[j])
                             samples_data = split_algo.sampler.process_samples(0, task_paths[j], False)
                             processed_task_data.append(samples_data)
                             split_algo.optimize_policy(0, samples_data)
@@ -557,7 +556,7 @@ if __name__ == '__main__':
                             task_rewards[taskid].append(np.sum(path['rewards']))
                         pre_opt_parameter = np.copy(split_policy.get_param_values())
                         # optimize the shared part
-                        split_algo.sampler.process_samples(0, paths)
+                        #split_algo.sampler.process_samples(0, paths)
                         samples_data = split_algo.sampler.process_samples(0, paths)
                         for layer in split_policy._mean_network._layers:
                             for param in layer.get_params():
@@ -586,7 +585,7 @@ if __name__ == '__main__':
                         split_policy._cached_param_shapes = {}
                         split_algo.init_opt()
                         for taskid in opt_order:
-                            split_algo.sampler.process_samples(0, task_paths[taskid])
+                            #split_algo.sampler.process_samples(0, task_paths[taskid])
                             samples_data = split_algo.sampler.process_samples(0, task_paths[taskid])
                             print('Optimizing parameter size: ', len(split_policy.get_param_values(trainable=True)))
                             split_algo.optimize_policy(0, samples_data)

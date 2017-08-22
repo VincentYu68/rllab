@@ -72,7 +72,7 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=20000,
+        batch_size=10000,
         max_path_length=env.horizon,
         n_itr=200,
 
@@ -96,8 +96,8 @@ run_experiment_lite(
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=1,
-    exp_name='hopper_torso01_20ktest_sd1_mixbaseline',
+    seed=0,
+    exp_name='hopper_fric1_1task_10ktest_sd0',
 
     # plot=True,
 )
