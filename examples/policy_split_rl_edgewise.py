@@ -32,6 +32,7 @@ from rllab.misc import ext
 from rllab.misc.ext import sliced_fun
 from rllab.algos.trpo import TRPO
 from rllab.algos.trpo_mt import TRPO_MultiTask
+from rllab.algos.trpo_imb import TRPO_ImbalanceMultiTask
 from rllab.algos.trpo_mpsel import TRPOMPSel
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.baselines.zero_baseline import ZeroBaseline
@@ -61,7 +62,7 @@ def get_gradient(algo, samples_data, trpo_split = False):
     return grad
 
 if __name__ == '__main__':
-    num_parallel = 7
+    num_parallel = 2
 
     hidden_size = (128, 64)
     batch_size = 20000
@@ -91,7 +92,7 @@ if __name__ == '__main__':
     accumulate_gradient = True
 
     imbalance_sample = False
-    sample_ratio = [0.95, 0.05]
+    sample_ratio = [0.05, 0.95]
 
     if alternate_update:
         append += '_alternate_update'
@@ -124,8 +125,8 @@ if __name__ == '__main__':
         if env._wrapped_env.monitoring:
             dartenv = dartenv.env
 
-        np.random.seed(testit*3+0)
-        random.seed(testit*3+0)
+        np.random.seed(testit*3+1)
+        random.seed(testit*3+1)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -364,7 +365,7 @@ if __name__ == '__main__':
                 split_policy = copy.deepcopy(policy)
 
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=task_size)
-            
+
             new_batch_size = batch_size
             if (split_param_size != 0 and alternate_update) or adaptive_sample:
                 new_batch_size = int(batch_size / task_size)
@@ -420,6 +421,11 @@ if __name__ == '__main__':
                                 paths += task_path
                                 if t == 0:
                                     reward_paths += task_path
+                                task_reward = 0
+                                for path in task_path:
+                                    task_reward += np.sum(path["rewards"])
+                                task_reward /= len(task_path)
+                                print('Reward for task ', t, ' is ', task_reward)
                         else:
                             paths = split_algo.sampler.obtain_samples(0)
                         samples_data = split_algo.sampler.process_samples(0, paths)
@@ -464,6 +470,11 @@ if __name__ == '__main__':
                                 paths += task_path
                                 if t == 0:
                                     reward_paths += task_path
+                                task_reward = 0
+                                for path in task_path:
+                                    task_reward += np.sum(path["rewards"])
+                                task_reward /= len(task_path)
+                                print('Reward for task ', t, ' is ', task_reward)
                         else:
                             paths = split_algo.sampler.obtain_samples(0)
                         task_paths = []
@@ -663,8 +674,8 @@ if __name__ == '__main__':
                     append = 'all'
                 plt.plot(one_perc_kl_div[:, j], label=str(split_percentages[i]) + append, alpha=0.3)
             plt.legend(bbox_to_anchor=(0.3, 0.3),
-            bbox_transform=plt.gcf().transFigure, numpoints=1)
-            plt.savefig(diretory + '/kl_div_%s.png'%str(split_percentages[i]))
+                       bbox_transform=plt.gcf().transFigure, numpoints=1)
+            plt.savefig(diretory + '/kl_div_%s.png' % str(split_percentages[i]))
 
     plt.close('all')
 

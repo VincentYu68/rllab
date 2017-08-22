@@ -76,7 +76,6 @@ def run_task(*_):
         max_path_length=env.horizon,
         n_itr=200,
 
-
         discount=0.995,
         step_size=0.01,
         gae_lambda=0.97,
@@ -92,7 +91,7 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=4,
+    n_parallel=0,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
