@@ -62,9 +62,9 @@ def get_gradient(algo, samples_data, trpo_split = False):
     return grad
 
 if __name__ == '__main__':
-    num_parallel = 7
+    num_parallel = 4
 
-    hidden_size = (128, 64)
+    hidden_size = (64, 64)
     batch_size = 20000
     pathlength = 1000
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     initialize_epochs = 0
     grad_epochs = 1
     test_epochs = 200
-    append = 'hopper_split_test_fric01_specbuiltinbaseline_masked_grad_sd0_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    append = 'hopper_2friction_segments_test_sd1_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     task_size = 2
 
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     accumulate_gradient = True
 
     imbalance_sample = False
-    sample_ratio = [0.05, 0.95]
+    sample_ratio = [0.1, 0.9]
 
     if alternate_update:
         append += '_alternate_update'
@@ -100,7 +100,7 @@ if __name__ == '__main__':
         append += '_accumulate_gradient'
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 1.0]
+    split_percentages = [0.0, 0.001, 0.1]
 
     learning_curves = []
     kl_divergences = []
@@ -332,8 +332,8 @@ if __name__ == '__main__':
                     mask_split_flat = np.concatenate([mask_split_flat, np.array(masks[k*2]).flatten(), np.array(masks[k*2+1]).flatten()])
             mask_share_flat = np.ones(len(mask_split_flat))
             mask_share_flat -= mask_split_flat
-            mask_split_flat = np.concatenate([mask_split_flat, np.ones(dartenv.act_dim*task_size)])
-            mask_share_flat = np.concatenate([mask_share_flat, np.zeros(dartenv.act_dim*task_size)])
+            mask_split_flat = np.concatenate([mask_split_flat, np.ones(dartenv.act_dim)])
+            mask_share_flat = np.concatenate([mask_share_flat, np.ones(dartenv.act_dim)])
 
 
             policy.set_param_values(init_param_value)
@@ -513,19 +513,20 @@ if __name__ == '__main__':
                             reward /= len(reward_paths)
                         else:
                             reward = float((dict(logger._tabular)['AverageReturn']))
-                        #split_algo.optimize_policy(0, all_data)
-                        #all_data_grad = split_policy.get_param_values() - pre_opt_parameter
+                        split_algo.optimize_policy(0, all_data)
+                        all_data_grad = split_policy.get_param_values() - pre_opt_parameter
 
                         # do a line search to project the udpate onto the constraint manifold
-                        sum_grad = accum_grad# * mask_split_flat + mask_share_flat*all_data_grad
-                        '''ls_steps = []
-                        for s in range(20):
+                        sum_grad = accum_grad# + all_data_grad
+                        ls_steps = []
+                        loss_before = split_algo.loss(all_data)
+                        for s in range(40):
                             ls_steps.append(0.95**s)
                         for step in ls_steps:
                             split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
-                            if split_algo.mean_kl(all_data)[0] < split_algo.step_size:
-                                break                          '''
-                        step=1
+                            if split_algo.mean_kl(all_data)[0] < split_algo.step_size and split_algo.loss(all_data)[0] < loss_before[0]:
+                                break
+                        #step=1
 
                         split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
 

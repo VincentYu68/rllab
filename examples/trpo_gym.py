@@ -22,7 +22,7 @@ def run_task(*_):
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(128, 64),
+        hidden_sizes=(64, 32),
         #append_dim=2,
 
         net_mode=0,
@@ -72,7 +72,7 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=10000,
+        batch_size=25000,
         max_path_length=env.horizon,
         n_itr=200,
 
@@ -91,13 +91,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=0,
+    n_parallel=4,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=0,
-    exp_name='hopper_fric1_1task_10ktest_sd0',
+    exp_name='hopper_torso0405_sd0_2',
 
     # plot=True,
 )
