@@ -11,6 +11,7 @@ from rllab.policies.categorical_mlp_policy import CategoricalMLPPolicy
 
 import joblib
 import numpy as np
+import random
 
 def run_task(*_):
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
@@ -18,11 +19,10 @@ def run_task(*_):
     mp_dim = 1
     #policy_pre = joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/policy_cont.pkl')
     split_dim = 0
-
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(128, 64),
+        hidden_sizes=(64, 32),
         #append_dim=2,
 
         net_mode=0,
@@ -39,7 +39,6 @@ def run_task(*_):
     )
 
     #policy = joblib.load('data/local/experiment/walker3d-2d_cont/policy.pkl')
-
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
     '''policy = CategoricalMLPPolicy(
         env_spec=env.spec,
@@ -62,7 +61,7 @@ def run_task(*_):
             policy.get_params(trainable=True)[paramid].set_value(params[paramid].get_value(borrow=True))
     '''
 
-    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
+    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=3)
 
     #policy = params['policy']
     #baseline = params['baseline']
@@ -72,9 +71,9 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=10000,
+        batch_size=30000,
         max_path_length=env.horizon,
-        n_itr=200,
+        n_itr=125,
 
         discount=0.995,
         step_size=0.01,
@@ -91,13 +90,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=0,
+    n_parallel=7,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=0,
-    exp_name='hopper_fric1_1task_10ktest_sd0',
+    seed=2,
+    exp_name='hopper_friction06075_sd2_additionaldim_threetask',
 
     # plot=True,
 )
