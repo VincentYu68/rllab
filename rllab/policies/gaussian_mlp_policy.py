@@ -53,6 +53,7 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
             learn_segment = False,
             split_num = 1,
             split_layer=[0],
+            split_std = False,
     ):
         """
         :param env_spec:
@@ -192,7 +193,7 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                 )
                 l_log_std = std_network.output_layer
             else:
-                if net_mode != 8:
+                if net_mode != 8 or not split_std:
                     l_log_std = ParamLayer(
                         mean_network.input_layer,
                         num_units=action_dim,
@@ -210,7 +211,7 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                         split_num = split_num,
                         init_param=split_init_net.get_params()[-1]
                     )
-                if net_mode == 6 or net_mode == 7:# or net_mode == 8:
+                if net_mode == 6 or net_mode == 7 or (net_mode == 8 and not split_std):
                     l_log_std.get_params()[0].set_value(split_init_net.get_params()[-1].get_value())
 
         self.min_std = min_std

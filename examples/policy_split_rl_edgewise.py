@@ -64,8 +64,8 @@ def get_gradient(algo, samples_data, trpo_split = False):
 if __name__ == '__main__':
     num_parallel = 4
 
-    hidden_size = (64, 32)
-    batch_size = 50000
+    hidden_size = (32, 32)
+    batch_size = 30000
     pathlength = 1000
 
     random_split = False
@@ -74,10 +74,10 @@ if __name__ == '__main__':
 
     initialize_epochs = 0
     grad_epochs = 1
-    test_epochs = 300
-    append = 'hopper_split_test_3models_splitstd_maskgrad_6432net_sd1_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    test_epochs = 150
+    append = 'cartpole_massstrength4segment_3232net_sd2_splitstd_maskedgrad_specbaseline_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
-    task_size = 3
+    task_size = 4
 
     reps = 1
     if random_split:
@@ -100,7 +100,7 @@ if __name__ == '__main__':
         append += '_accumulate_gradient'
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [0.0, 1.0]
+    split_percentages = [1.0, 0.0]
 
     learning_curves = []
     kl_divergences = []
@@ -121,13 +121,13 @@ if __name__ == '__main__':
 
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
-        env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
+        env = normalize(GymEnv("DartCartPoleSwingUp-v1", record_log=False, record_video=False))
         dartenv = env._wrapped_env.env.env
         if env._wrapped_env.monitoring:
             dartenv = dartenv.env
 
-        np.random.seed(testit*3+1)
-        random.seed(testit*3+1)
+        np.random.seed(testit*3+2)
+        random.seed(testit*3+2)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -332,8 +332,8 @@ if __name__ == '__main__':
                     mask_split_flat = np.concatenate([mask_split_flat, np.array(masks[k*2]).flatten(), np.array(masks[k*2+1]).flatten()])
             mask_share_flat = np.ones(len(mask_split_flat))
             mask_share_flat -= mask_split_flat
-            mask_split_flat = np.concatenate([mask_split_flat, np.ones(dartenv.act_dim)])
-            mask_share_flat = np.concatenate([mask_share_flat, np.ones(dartenv.act_dim)])
+            mask_split_flat = np.concatenate([mask_split_flat, np.ones(dartenv.act_dim*task_size)])
+            mask_share_flat = np.concatenate([mask_share_flat, np.ones(dartenv.act_dim*task_size)])
 
 
             policy.set_param_values(init_param_value)
@@ -359,6 +359,7 @@ if __name__ == '__main__':
                     split_num=task_size,
                     split_masks=masks,
                     split_init_net=policy,
+                    split_std=np.abs(split_percentage - 1.0) < 0.0001,
                 )
             else:
                 split_policy = copy.deepcopy(policy)
@@ -366,7 +367,7 @@ if __name__ == '__main__':
             if split_param_size == 0:
                 baseline_add = 0
             else:
-                baseline_add = task_size*0 # use 0 for now, though task_size should in theory improve performance more
+                baseline_add = task_size # use 0 for now, though task_size should in theory improve performance more
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=baseline_add)
 
             new_batch_size = batch_size
