@@ -557,7 +557,7 @@ if __name__ == '__main__':
                             ls_steps.append(0.95**s)
                         for step in ls_steps:
                             split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
-                            if split_algo.mean_kl(all_data)[0] < split_algo.step_size and split_algo.loss(all_data)[0] < loss_before[0]:
+                            if split_algo.mean_kl(all_data)[0] < split_algo.step_size:# and split_algo.loss(all_data)[0] < loss_before[0]:
                                 break
                         #step=1
 
