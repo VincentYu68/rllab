@@ -58,6 +58,7 @@ def run_task(*_):
         baseline=baseline,
 
         batch_size=30000,
+
         max_path_length=env.horizon,
         n_itr=100,
 

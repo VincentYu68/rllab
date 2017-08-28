@@ -135,6 +135,19 @@ class NPO(BatchPolopt):
             all_input_values += (samples_data["valids"],)
         return [self.optimizer.constraint_val(all_input_values)]
 
+    def loss(self, samples_data):
+        all_input_values = tuple(ext.extract(
+            samples_data,
+            "observations", "actions", "advantages"
+        ))
+        agent_infos = samples_data["agent_infos"]
+        state_info_list = [agent_infos[k] for k in self.policy.state_info_keys]
+        dist_info_list = [agent_infos[k] for k in self.policy.distribution.dist_info_keys]
+        all_input_values += tuple(state_info_list) + tuple(dist_info_list)
+        if self.policy.recurrent:
+            all_input_values += (samples_data["valids"],)
+        return [self.optimizer.loss(all_input_values)]
+
     @overrides
     def get_itr_snapshot(self, itr, samples_data):
         return dict(
