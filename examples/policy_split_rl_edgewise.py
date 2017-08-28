@@ -332,8 +332,12 @@ if __name__ == '__main__':
                     mask_split_flat = np.concatenate([mask_split_flat, np.array(masks[k*2]).flatten(), np.array(masks[k*2+1]).flatten()])
             mask_share_flat = np.ones(len(mask_split_flat))
             mask_share_flat -= mask_split_flat
-            mask_split_flat = np.concatenate([mask_split_flat, np.ones(dartenv.act_dim*task_size)])
-            mask_share_flat = np.concatenate([mask_share_flat, np.ones(dartenv.act_dim*task_size)])
+            if np.abs(split_percentage - 1.0) < 0.0001:
+                mask_split_flat = np.concatenate([mask_split_flat, np.ones(dartenv.act_dim*task_size)])
+                mask_share_flat = np.concatenate([mask_share_flat, np.zeros(dartenv.act_dim*task_size)])
+            else:
+                mask_split_flat = np.concatenate([mask_split_flat, np.zeros(dartenv.act_dim)])
+                mask_share_flat = np.concatenate([mask_share_flat, np.ones(dartenv.act_dim)])
 
 
             policy.set_param_values(init_param_value)
