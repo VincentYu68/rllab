@@ -22,46 +22,32 @@ def run_task(*_):
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64, 32),
-        #append_dim=2,
+        hidden_sizes=(2,),
 
         net_mode=0,
-
-        mp_dim=mp_dim,
-        mp_sel_hid_dim=12,
-        mp_sel_num=split_dim,
-        #wc_net_path='data/trained/2d_weightconverter.pkl',
-        learn_segment = False,
-        split_layer=[2],
-        split_num=split_dim,
-        #split_units=joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/split_scheme_backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start_orth_0.5.pkl'),
-        #split_init_net=policy_pre,
     )
 
-    #policy = joblib.load('data/local/experiment/walker3d-2d_cont/policy.pkl')
-    print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
-    '''policy = CategoricalMLPPolicy(
+    init_policy = joblib.load('data/local/experiment/hopper_torso0110_sd3_additionaldim_threetask/policy_0.pkl')
+    masks = []
+    params = init_policy.get_params()
+    for k in range(len(params) - 1):
+        masks.append(np.zeros(params[k].get_value().shape))
+    policy = GaussianMLPPolicy(
         env_spec=env.spec,
-        hidden_sizes=(64, 64),
-    )'''
+        # The neural network policy should have two hidden layers, each with 32 hidden units.
+        hidden_sizes=(2,),
+        # append_dim=2,
+        net_mode=8,
+        split_num=2,
+        split_masks=masks,
+        split_init_net=init_policy,
+    )
 
-    '''policy_prev = joblib.load('data/trained/policy_2d_footstrength_sd4_1000.pkl')
+    #policy = joblib.load('data/local/experiment/hopper_torso0110_sd3_additionaldim_threetask/policy_0.pkl')
+    print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
 
-    params = policy_prev.get_params(trainable=True)
-    for paramid in range(len(params)):
-        if paramid == 0:
-            n_class = env._wrapped_env.env.env.sampling_selector.n_class
-            param_value = params[paramid].get_value(borrow=True)
-            #obs_dim = param_value.shape[0] - 2  # hard-coded!!!
-            #param_value = np.vstack([param_value[0:obs_dim, :], param_value[obs_dim:, :].tolist() * n_class])
-            param_value = np.vstack([param_value] * n_class)
-            policy.get_params(trainable=True)[paramid].set_value(np.array(param_value, dtype=np.float32))
-        else:
-            policy.get_params(trainable=True)[paramid].set_value(params[paramid].get_value(borrow=True))
-    '''
-
-    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=3)
+    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=2)
 
     #policy = params['policy']
     #baseline = params['baseline']
@@ -73,7 +59,7 @@ def run_task(*_):
 
         batch_size=30000,
         max_path_length=env.horizon,
-        n_itr=125,
+        n_itr=100,
 
         discount=0.995,
         step_size=0.01,
@@ -90,13 +76,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=7,
+    n_parallel=4,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=2,
-    exp_name='hopper_friction06075_sd2_additionaldim_threetask',
+    seed=3,
+    exp_name='hopper_torso0110_sd3_additionaldim_twotask_splitpolicy_addbaseline_2',
 
     # plot=True,
 )

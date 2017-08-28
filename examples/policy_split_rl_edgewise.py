@@ -61,48 +61,23 @@ def get_gradient(algo, samples_data, trpo_split = False):
 
     return grad
 
-def test_policy(env, policy, rollouts, target_task = None):
-    reward = 0
-    for i in range(rollouts):
-        obs = env.reset()
-        if target_task is not None:
-            if hasattr(env._wrapped_env, 'env'):
-                dartenv = env._wrapped_env.env.env
-                if env._wrapped_env.monitoring:
-                    dartenv = dartenv.env
-
-                if target_task is not None:
-                    while dartenv.state_index != target_task:
-                        obs = env.reset()
-            if hasattr(env._wrapped_env, '_current_activated_env'):
-                if target_task is not None:
-                    while env._wrapped_env._current_activated_env != target_task:
-                        obs = env.reset()
-        d = False
-        while not d:
-            act, actinfo = policy.get_action(obs)
-            obs, rew, d, _ = env.step(actinfo['mean'])
-            reward += rew  
-    reward /= rollouts
-    return reward
-
 if __name__ == '__main__':
-    num_parallel = 15
+    num_parallel = 4
 
-    hidden_size = (64, 64)
-    batch_size = 30000
+    hidden_size = (64, 32)
+    batch_size = 50000
     pathlength = 1000
 
     random_split = False
     prioritized_split = False
     adaptive_sample = False
 
-    initialize_epochs = 20
-    grad_epochs = 10
-    test_epochs = 200
-    append = 'hopper_split_test_2frictionsegments01_sharestd_maskgrad_6464net_sd2_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    initialize_epochs = 0
+    grad_epochs = 1
+    test_epochs = 300
+    append = 'hopper_split_test_3models_splitstd_maskgrad_6432net_sd1_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
-    task_size = 2
+    task_size = 3
 
     reps = 1
     if random_split:
@@ -110,8 +85,8 @@ if __name__ == '__main__':
         if prioritized_split:
             append += '_prio'
 
-    load_init_policy = True
-    load_split_data = True
+    load_init_policy = False
+    load_split_data = False
 
     alternate_update = False
     accumulate_gradient = True
@@ -125,7 +100,7 @@ if __name__ == '__main__':
         append += '_accumulate_gradient'
 
     #split_percentages = [0.0, 0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.7, 1.0]
-    split_percentages = [1.0]
+    split_percentages = [0.0, 1.0]
 
     learning_curves = []
     kl_divergences = []
@@ -140,6 +115,7 @@ if __name__ == '__main__':
 
     if not os.path.exists(diretory):
         os.makedirs(diretory)
+        os.makedirs(diretory+'/policies')
 
     average_metric_list = []
 
@@ -150,8 +126,8 @@ if __name__ == '__main__':
         if env._wrapped_env.monitoring:
             dartenv = dartenv.env
 
-        np.random.seed(testit*3+2)
-        random.seed(testit*3+2)
+        np.random.seed(testit*3+1)
+        random.seed(testit*3+1)
 
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
@@ -160,7 +136,7 @@ if __name__ == '__main__':
             # append_dim=2,
             net_mode=0,
         )
-        baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=task_size)
+        baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
         if load_init_policy:
             policy = joblib.load(diretory + '/init_policy.pkl')
@@ -361,7 +337,7 @@ if __name__ == '__main__':
 
 
             policy.set_param_values(init_param_value)
-            if split_param_size != 0 or True:
+            if split_param_size != 0:
                 if dartenv.avg_div != task_size:
                     dartenv.avg_div = task_size
                     dartenv.obs_dim += dartenv.avg_div
@@ -387,7 +363,11 @@ if __name__ == '__main__':
             else:
                 split_policy = copy.deepcopy(policy)
 
-            split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=task_size)
+            if split_param_size == 0:
+                baseline_add = 0
+            else:
+                baseline_add = task_size*0 # use 0 for now, though task_size should in theory improve performance more
+            split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=baseline_add)
 
             new_batch_size = batch_size
             if (split_param_size != 0 and alternate_update) or adaptive_sample:
@@ -412,7 +392,7 @@ if __name__ == '__main__':
             parallel_sampler.set_seed(0)
 
             split_algo.start_worker()
-            if split_param_size != 0 or True:
+            if split_param_size != 0:
                 parallel_sampler.update_env_params({'avg_div': dartenv.avg_div, 'obs_dim': dartenv.obs_dim,
                                                     'observation_space': dartenv.observation_space})
 
@@ -480,8 +460,6 @@ if __name__ == '__main__':
                             reward /= len(reward_paths)
                         else:
                             reward = float((dict(logger._tabular)['AverageReturn']))
-                        #if i % 30 == 0:
-                        #    reward = test_policy(env, policy, 500)
                         kl_div_curve.append(split_algo.mean_kl(samples_data))
                         print('reward: ', reward)
                         print(split_algo.mean_kl(samples_data))
@@ -564,13 +542,11 @@ if __name__ == '__main__':
                             reward /= len(reward_paths)
                         else:
                             reward = float((dict(logger._tabular)['AverageReturn']))
-                        #if i % 30 == 0:
-                        #    reward = test_policy(env, split_policy, 500)
-                        #split_algo.optimize_policy(0, all_data)
+                        split_algo.optimize_policy(0, all_data)
                         all_data_grad = split_policy.get_param_values() - pre_opt_parameter
 
                         # do a line search to project the udpate onto the constraint manifold
-                        sum_grad = accum_grad#*mask_split_flat + all_data_grad*mask_share_flat
+                        sum_grad = accum_grad*mask_split_flat + all_data_grad*mask_share_flat
                         ls_steps = []
                         for s in range(40):
                             ls_steps.append(0.95**s)
@@ -655,9 +631,11 @@ if __name__ == '__main__':
 
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                     print(diretory)
+                    joblib.dump(split_policy, diretory + '/policies/policy_' + str(rep)+'_'+str(i)+'_'+ str(split_percentage) + '.pkl',
+                                compress=True)
                 avg_learning_curve.append(learning_curve)
                 kl_divergences[split_id].append(kl_div_curve)
-                joblib.dump(split_policy, diretory + '/final_policy_'+str(split_percentage)+'.pkl', compress=True)
+                joblib.dump(split_policy, diretory + '/policies/final_policy_'+str(split_percentage)+'.pkl', compress=True)
 
                 avg_error += float(reward)
             pred_list.append(avg_error / reps)

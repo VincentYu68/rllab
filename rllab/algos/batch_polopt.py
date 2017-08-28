@@ -131,8 +131,25 @@ class BatchPolopt(RLAlgorithm):
             self.init_opt()
         for itr in range(self.current_itr, self.n_itr):
             with logger.prefix('itr #%d | ' % itr):
+                #test = np.concatenate([np.arange(12), [1, 0]])
+                #test = test[0:-2]
+                #print('BF opt: ', self.policy.get_action(test))
                 paths = self.sampler.obtain_samples(itr)
                 samples_data = self.sampler.process_samples(itr, paths)
+                import joblib, copy
+                #joblib.dump(samples_data, 'data/local/experiment/hopper_torso0110_sd3_additionaldim_twotask_zerobaseline/training_data'+str(itr), compress=True)
+                '''saved_data = joblib.load('data/local/experiment/hopper_torso0110_sd3_additionaldim_twotask_zerobaseline/training_data'+str(itr))
+                samples_data = copy.deepcopy(saved_data)
+                samples_data["observations"] = []
+                for obs in saved_data['observations']:
+                    if obs[-1] < 0.5:
+                        obs = np.concatenate([obs, [1,0]])
+                    else:
+                        obs = np.concatenate([obs, [0, 1]])
+                    samples_data["observations"].append(obs)
+                gd=self.get_grad(samples_data)
+                print(gd)'''
+
                 self.log_diagnostics(paths)
                 self.optimize_policy(itr, samples_data)
                 logger.log("saving snapshot...")
@@ -149,7 +166,9 @@ class BatchPolopt(RLAlgorithm):
                     if self.pause_for_plot:
                         input("Plotting evaluation run: Press Enter to "
                                   "continue...")
-
+                #print(self.policy.get_param_values())
+                #print('AFT opt: ', self.policy.get_action(test))
+                #abc
         self.shutdown_worker()
 
 
@@ -178,3 +197,4 @@ class BatchPolopt(RLAlgorithm):
     def update_plot(self):
         if self.plot:
             plotter.update_plot(self.policy, self.max_path_length)
+

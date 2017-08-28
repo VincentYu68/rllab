@@ -5,7 +5,7 @@ import rllab.misc.logger as logger
 import theano
 import theano.tensor as TT
 from rllab.optimizers.penalty_lbfgs_optimizer import PenaltyLbfgsOptimizer
-
+from rllab.misc.ext import sliced_fun
 
 class NPO(BatchPolopt):
     """
@@ -143,3 +143,17 @@ class NPO(BatchPolopt):
             baseline=self.baseline,
             env=self.env,
         )
+
+    def get_grad(self, samples_data):
+        all_input_values = tuple(ext.extract(
+            samples_data,
+            "observations", "actions", "advantages"
+        ))
+        agent_infos = samples_data["agent_infos"]
+        state_info_list = [agent_infos[k] for k in self.policy.state_info_keys]
+        dist_info_list = [agent_infos[k] for k in self.policy.distribution.dist_info_keys]
+        all_input_values += tuple(state_info_list) + tuple(dist_info_list)
+        if self.policy.recurrent:
+            all_input_values += (samples_data["valids"],)
+        return sliced_fun(self.optimizer._opt_fun["f_grads"], 1)(
+            (all_input_values))
