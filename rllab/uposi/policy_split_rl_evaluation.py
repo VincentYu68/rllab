@@ -109,8 +109,9 @@ def perform_evaluation(num_parallel,
                        env_name,
                        seed,
                        test_num=1,
+                       param_update_start = 50,
                        param_update_frequency = 50,
-                       param_update_max = 200):
+                       param_update_end = 200):
     reps = 1
 
     learning_curves = []
@@ -594,7 +595,7 @@ def perform_evaluation(num_parallel,
                         print('reward for different tasks: ', task_rewards, reward)
 
                     learning_curve.append(reward)
-                    if (i+initialize_epochs+grad_epochs) % param_update_frequency == 0 and (i+initialize_epochs+grad_epochs) < param_update_max and i > 0:
+                    if (i+initialize_epochs+grad_epochs) % param_update_frequency == 0 and (i+initialize_epochs+grad_epochs) < param_update_end and (i+initialize_epochs+grad_epochs) > param_update_start:
                         print("Updating model parameters...")
                         parallel_sampler.update_env_params({'task_expand_flag': True})
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
