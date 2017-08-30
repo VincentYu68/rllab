@@ -5,18 +5,18 @@ from  rllab.uposi.policy_split_rl_evaluation import *
 if __name__ == '__main__':
     num_parallel = 4
 
-    hidden_size = (32, 16)
-    batch_size = 20000
+    hidden_size = (64, 32)
+    batch_size = 40000
     pathlength = 500
 
     random_split = False
     prioritized_split = False
     adaptive_sample = False
 
-    initialize_epochs = 0
-    grad_epochs = 1
+    initialize_epochs = 70
+    grad_epochs = 30
     test_epochs = 200
-    append = 'reacher_3models_notaskinput_3232net_sd2_splitstd_maskedgrad_specbaseline_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    append = 'reacher_3models_taskinput_6432net_sd2_splitstd_maskedgrad_vanbaseline_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     env_name = "DartReacher3d-v1"
     task_size = 3
@@ -60,4 +60,5 @@ if __name__ == '__main__':
                        imbalance_sample,
                        sample_ratio,
                        split_percentages,
-                       env_name)
+                       env_name,
+                       seed=2)

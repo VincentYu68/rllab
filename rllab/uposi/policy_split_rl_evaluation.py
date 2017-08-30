@@ -106,7 +106,11 @@ def perform_evaluation(num_parallel,
                        imbalance_sample,
                        sample_ratio,
                        split_percentages,
-                       env_name):
+                       env_name,
+                       seed,
+                       test_num=1,
+                       param_update_frequency = 50,
+                       param_update_max = 200):
     reps = 1
 
     learning_curves = []
@@ -115,7 +119,6 @@ def perform_evaluation(num_parallel,
         learning_curves.append([])
         kl_divergences.append([])
 
-    test_num = 1
     performances = []
 
     diretory = 'data/trained/gradient_temp/rl_split_' + append
@@ -377,7 +380,7 @@ def perform_evaluation(num_parallel,
             if split_param_size == 0:
                 baseline_add = 0
             else:
-                baseline_add = task_size * 0  # use 0 for now, though task_size should in theory improve performance more
+                baseline_add = task_size  # use 0 for now, though task_size should in theory improve performance more
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=baseline_add)
 
             new_batch_size = batch_size
@@ -501,11 +504,11 @@ def perform_evaluation(num_parallel,
                         else:
                             reward = float((dict(logger._tabular)['AverageReturn']))
 
-                        split_algo.optimize_policy(0, all_data)
-                        all_data_grad = split_policy.get_param_values() - pre_opt_parameter
+                        #split_algo.optimize_policy(0, all_data)
+                        #all_data_grad = split_policy.get_param_values() - pre_opt_parameter
 
                         # do a line search to project the udpate onto the constraint manifold
-                        sum_grad = accum_grad * mask_split_flat + all_data_grad * mask_share_flat
+                        sum_grad = accum_grad# * mask_split_flat + all_data_grad * mask_share_flat
 
                         ls_steps = []
                         loss_before = split_algo.loss(all_data)
@@ -591,7 +594,9 @@ def perform_evaluation(num_parallel,
                         print('reward for different tasks: ', task_rewards, reward)
 
                     learning_curve.append(reward)
-
+                    if (i+initialize_epochs+grad_epochs) % param_update_frequency == 0 and (i+initialize_epochs+grad_epochs) < param_update_max and i > 0:
+                        print("Updating model parameters...")
+                        parallel_sampler.update_env_params({'task_expand_flag': True})
                     print('============= Finished ', split_percentage, ' Rep ', rep, '   test ', i, ' ================')
                     print(diretory)
                     joblib.dump(split_policy, diretory + '/policies/policy_' + str(rep) + '_' + str(i) + '_' + str(

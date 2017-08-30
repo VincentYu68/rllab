@@ -5,8 +5,8 @@ from  rllab.uposi.policy_split_rl_evaluation import *
 if __name__ == '__main__':
     num_parallel = 4
 
-    hidden_size = (32, 32)
-    batch_size = 30000
+    hidden_size = (64, 64)
+    batch_size = 50000
     pathlength = 1000
 
     random_split = False
@@ -15,11 +15,12 @@ if __name__ == '__main__':
 
     initialize_epochs = 0
     grad_epochs = 1
-    test_epochs = 200
-    append = 'hopper_torso3segments_notaskinput_3232net_sd2_splitstd_maskedgrad_specbaseline_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    test_epochs = 250
+    seed=2
+    append = 'hopper_expandtorsotest_taskinput_6464net_sd%d_splitstd_maskedgrad_specbaseline_%dk_%d_%d_unweighted'%(seed,batch_size/1000, initialize_epochs, grad_epochs)
 
     env_name = "DartHopper-v1"
-    task_size = 3
+    task_size = 2
 
     if random_split:
         append += '_rand'
@@ -40,7 +41,7 @@ if __name__ == '__main__':
     if accumulate_gradient:
         append += '_accumulate_gradient'
 
-    split_percentages = [0.0, 1.0]
+    split_percentages = [0.0]
 
     perform_evaluation(num_parallel, hidden_size,
                        batch_size,
@@ -60,4 +61,6 @@ if __name__ == '__main__':
                        imbalance_sample,
                        sample_ratio,
                        split_percentages,
-                       env_name)
+                       env_name,
+                       seed=seed,
+                       test_num=3)
