@@ -16,15 +16,20 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
     if animated:
         env.render()
 
-    dartenv = env._wrapped_env.env.env
-    if env._wrapped_env.monitoring:
-        dartenv = dartenv.env
-    if resample_mp is not None:
-        dartenv.param_manager.set_simulator_parameters(resample_mp)
+    if hasattr(env._wrapped_env, 'env'):
+        dartenv = env._wrapped_env.env.env
+        if env._wrapped_env.monitoring:
+            dartenv = dartenv.env
+        if resample_mp is not None:
+            dartenv.param_manager.set_simulator_parameters(resample_mp)
 
-    if target_task is not None:
-        while dartenv.state_index != target_task:
-            o = env.reset()
+        if target_task is not None:
+            while dartenv.state_index != target_task:
+                o = env.reset()
+    if hasattr(env._wrapped_env, '_current_activated_env'):
+        if target_task is not None:
+            while env._wrapped_env._current_activated_env != target_task:
+                o = env.reset()
 
     while path_length < max_path_length:
         a, agent_info = agent.get_action(o)
