@@ -139,6 +139,8 @@ def perform_evaluation(num_parallel,
         np.random.seed(testit * 3 + 2)
         random.seed(testit * 3 + 2)
 
+        pre_training_learning_curve = []
+
         policy = GaussianMLPPolicy(
             env_spec=env.spec,
             # The neural network policy should have two hidden layers, each with 32 hidden units.
@@ -200,6 +202,7 @@ def perform_evaluation(num_parallel,
                 print(algo.mean_kl(samples_data))
 
                 print(dict(logger._tabular)['AverageReturn'])
+                pre_training_learning_curve.append(dict(logger._tabular)['AverageReturn'])
             joblib.dump(policy, diretory + '/init_policy.pkl', compress=True)
 
         print('------- initial training complete ---------------')
@@ -242,13 +245,16 @@ def perform_evaluation(num_parallel,
 
                 samples_data = algo.sampler.process_samples(0, paths)
                 opt_data = algo.optimize_policy(0, samples_data)
+                pre_training_learning_curve.append(dict(logger._tabular)['AverageReturn'])
             joblib.dump(split_data, diretory + '/split_data.pkl', compress=True)
             joblib.dump(net_weights, diretory + '/net_weights.pkl', compress=True)
             joblib.dump(net_weight_values, diretory + '/net_weight_values.pkl', compress=True)
+            joblib.dump(pre_training_learning_curve, diretory + '/pretrain_learningcurve.pkl', compress=True)
         else:
             split_data = joblib.load(diretory + '/split_data.pkl')
             net_weights = joblib.load(diretory + '/net_weights.pkl')
             net_weight_values = joblib.load(diretory + '/net_weight_values.pkl')
+            pre_training_learning_curve = joblib.load(diretory + '/pretrain_learningcurve.pkl')
 
         for i in range(grad_epochs):
             policy.set_param_values(net_weight_values[i])
@@ -628,15 +634,15 @@ def perform_evaluation(num_parallel,
             plt.savefig(diretory + '/split_learning_curves.png')
 
             if len(kl_divergences[0]) > 0:
-                print('kldiv:', kl_divergences)
+                #print('kldiv:', kl_divergences)
                 avg_kl_div = []
                 for i in range(len(kl_divergences)):
                     if len(kl_divergences[i]) > 0:
                         avg_kl_div.append(np.mean(kl_divergences[i], axis=0))
-                print(avg_kl_div)
+                #print(avg_kl_div)
                 for i in range(len(avg_kl_div)):
                     one_perc_kl_div = np.array(avg_kl_div[i])
-                    print(i, one_perc_kl_div)
+                    #print(i, one_perc_kl_div)
                     plt.figure()
                     for j in range(len(one_perc_kl_div[0])):
                         append = 'task%d' % j
