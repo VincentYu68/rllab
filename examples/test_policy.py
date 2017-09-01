@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     rew = 0
 
-    for i in range(1500):
+    for i in range(2500):
         if policy is not None:
             a, ainfo = policy.get_action(o)
             act = a#ainfo['mean']
@@ -67,7 +67,7 @@ if __name__ == '__main__':
 
         #time.sleep(0.1)
 
-        if d or i == 1499:
+        if d or i == 2499:
             print('reward: ', rew)
             o=env_wrapper.reset()
             #break

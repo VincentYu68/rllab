@@ -122,7 +122,7 @@ def test(out_fn, X, Y):
     return np.mean((pred-Y)**2)
 
 if __name__ == '__main__':
-    dim = 26
+    dim = 20
     in_dim = dim+1
     out_dim = dim
     difficulties = [6, 6, 6]
