@@ -17,37 +17,21 @@ def run_task(*_):
     env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
 
     mp_dim = 1
-    #policy_pre = joblib.load('data/trained/gradient_temp/backpack_slope_sd7_3seg_vanillagradient_unweighted_1200start/policy_cont.pkl')
+    policy_pre = joblib.load('data/trained/gradient_temp/rl_split_hopper_3models_taskinput_6432net_sd4_splitstd_maskedgrad_specbaseline_40k_70_30_unweighted_accumulate_gradient/final_policy_0.1.pkl')
     split_dim = 0
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(2,),
+        hidden_sizes=(64, 32),
 
-        net_mode=0,
+        net_mode=9,
+        split_init_net=policy_pre,
+        task_id=1, # use ellipsoid net
     )
 
-    init_policy = joblib.load('data/local/experiment/hopper_torso0110_sd3_additionaldim_threetask/policy_0.pkl')
-    masks = []
-    params = init_policy.get_params()
-    for k in range(len(params) - 1):
-        masks.append(np.zeros(params[k].get_value().shape))
-    policy = GaussianMLPPolicy(
-        env_spec=env.spec,
-        # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(2,),
-        # append_dim=2,
-        net_mode=8,
-        split_num=2,
-        split_masks=masks,
-        split_init_net=init_policy,
-    )
-
-    #policy = joblib.load('data/local/experiment/hopper_torso0110_sd3_additionaldim_threetask/policy_0.pkl')
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
-
-    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=2)
+    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
     #policy = params['policy']
     #baseline = params['baseline']
@@ -57,7 +41,7 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=30000,
+        batch_size=13333,
 
         max_path_length=env.horizon,
         n_itr=100,
@@ -77,13 +61,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=4,
+    n_parallel=2,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=3,
-    exp_name='hopper_torso0110_sd3_additionaldim_twotask_splitpolicy_addbaseline_2',
+    seed=2,
+    exp_name='hopper_newshape2',
 
     # plot=True,
 )
