@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     if hasattr(env.env, 'param_manager'):
         #env.env.param_manager.resample_parameters()
-        env.env.param_manager.set_simulator_parameters([0.7, 0.45])
+        #env.env.param_manager.set_simulator_parameters([0.7, 0.45])
         #env.env.resample_MP = True
         print('Model Parameters: ', env.env.param_manager.get_simulator_parameters())
 
@@ -48,7 +48,9 @@ if __name__ == '__main__':
 
     rew = 0
 
-    for i in range(1500):
+    traj = 10
+    ct = 0
+    while ct < traj:
         if policy is not None:
             a, ainfo = policy.get_action(o)
             act = a#ainfo['mean']
@@ -67,10 +69,12 @@ if __name__ == '__main__':
 
         #time.sleep(0.1)
 
-        if d or i == 1499:
+        if d:
+            ct += 1
             print('reward: ', rew)
             o=env_wrapper.reset()
             #break
+    print('avg rew ', rew / traj)
 
     #plt.plot(thigh_torque_1)
     #plt.plot(thigh_torque_2)

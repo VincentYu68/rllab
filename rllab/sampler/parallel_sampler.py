@@ -94,6 +94,14 @@ def _worker_set_env_params(G,params,scope=None):
 
 def _worker_collect_one_path(G, max_path_length, scope=None):
     G = _get_scoped_G(G, scope)
+
+    if not hasattr(G.env._wrapped_env, 'env'):
+        if G.ensemble_dynamics['target_task'] is not None:
+            path = rollout(G.env, G.policy, max_path_length, resample_mp=None, target_task = G.ensemble_dynamics['target_task'])
+        else:
+            path = rollout(G.env, G.policy, max_path_length)
+        return [path], len(path["rewards"])
+
     dartenv = G.env._wrapped_env.env.env
     if G.env._wrapped_env.monitoring:
         dartenv = dartenv.env
@@ -126,10 +134,6 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
                 sampled_paths.append(path)
                 sample_num += len(path["rewards"])
             return sampled_paths, sample_num
-
-    if G.ensemble_dynamics['target_task'] is not None:
-        path = rollout(G.env, G.policy, max_path_length, resample_mp=None, target_task = G.ensemble_dynamics['target_task'])
-        return [path], len(path["rewards"])
 
 
     if G.ensemble_dynamics['use_ens_dyn']:

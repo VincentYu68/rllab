@@ -1,4 +1,5 @@
 from rllab.algos.trpo import TRPO
+from rllab.algos.trpo_sym import TRPO_Symmetry
 from rllab.algos.trpo_mpsel import TRPOMPSel
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
@@ -14,46 +15,38 @@ import numpy as np
 import random
 
 def run_task(*_):
-    env = normalize(GymEnv("DartReacher3d-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartWalker3d-v1"))#, record_log=False, record_video=False))
 
-    mp_dim = 1
-    policy_pre = joblib.load('data/trained/gradient_temp/rl_split_hopper_3models_taskinput_6432net_sd4_splitstd_maskedgrad_specbaseline_40k_70_30_unweighted_accumulate_gradient/final_policy_0.1.pkl')
-    split_dim = 0
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64, 32),
+        hidden_sizes=(64,64),
 
-        net_mode=9,
-        split_init_net=policy_pre,
-        task_id=1, # use ellipsoid net
+        net_mode=0,
     )
-
+    #policy = joblib.load('data/local/experiment/walker3d_symmetry/policy.pkl')
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
     baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
-    #policy = params['policy']
-    #baseline = params['baseline']
 
-    algo = TRPO(
+    algo = TRPO_Symmetry(
         env=env,
         policy=policy,
         baseline=baseline,
 
-        batch_size=13333,
+        batch_size=50000,
 
         max_path_length=env.horizon,
-        n_itr=400,
+        n_itr=500,
 
         discount=0.995,
         step_size=0.01,
         gae_lambda=0.97,
-        #mp_dim = mp_dim,
-        #epopt_epsilon = 1.0,
-        #epopt_after_iter = 0,
-        # Uncomment both lines (this and the plot parameter below) to enable plotting
-        # plot=True,
+        observation_permutation=np.array([0.0001,-1, 2,-3,-4, -5,-6,7, 14,-15,-16, 17, 18,-19, 8,-9,-10, 11, 12,-13,\
+                                          20,21,-22, 23,-24,-25, -26,-27,28, 35,-36,-37, 38, 39,-40, 29,-30,-31, 32, 33,-34]),
+        action_permutation=np.array([-0.0001, -1, 2, 9,-10,-11, 12, 13,-14, 3,-4,-5, 6, 7, -8]),
+        sym_loss_weight=0.2,
     )
     algo.train()
 
@@ -61,13 +54,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=5,
+    n_parallel=2,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=2,
-    exp_name='reacher_v0_sanity',
+    seed=4,
+    exp_name='walker3d_symmetry3',
 
     # plot=True,
 )

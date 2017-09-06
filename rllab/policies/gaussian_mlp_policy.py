@@ -5,7 +5,7 @@ import numpy as np
 
 from rllab.core.lasagne_layers import ParamLayer, ParamLayerSplit
 from rllab.core.lasagne_powered import LasagnePowered
-from rllab.core.network import MLP, MLPAppend, MLP_PS, MLP_PROJ, MLP_PSD, MLP_Split, MLP_SplitAct, MLP_SoftSplit, MLP_MaskedSplit
+from rllab.core.network import MLP, MLPAppend, MLP_PS, MLP_PROJ, MLP_PSD, MLP_Split, MLP_SplitAct, MLP_SoftSplit, MLP_MaskedSplit, MLP_MaskedSplitCont
 from rllab.spaces import Box
 
 from rllab.core.serializable import Serializable
@@ -54,6 +54,7 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
             split_num = 1,
             split_layer=[0],
             split_std = False,
+            task_id = 0,
     ):
         """
         :param env_spec:
@@ -166,6 +167,16 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     split_masks=split_masks,
                     init_net=split_init_net._mean_network,
                 )
+            elif net_mode == 9:
+                mean_network = MLP_MaskedSplitCont(
+                    input_shape=(obs_dim,),
+                    output_dim=action_dim,
+                    hidden_sizes=hidden_sizes,
+                    hidden_nonlinearity=hidden_nonlinearity,
+                    output_nonlinearity=output_nonlinearity,
+                    task_id=task_id,
+                    init_net=split_init_net._mean_network,
+                )
             else:
                 mean_network = MLP(
                     input_shape=(obs_dim,),
@@ -213,6 +224,8 @@ class GaussianMLPPolicy(StochasticPolicy, LasagnePowered, Serializable):
                     )
                 if net_mode == 6 or net_mode == 7 or (net_mode == 8 and not split_std):
                     l_log_std.get_params()[0].set_value(split_init_net.get_params()[-1].get_value())
+                if net_mode == 9:
+                    l_log_std.get_params()[0].set_value(split_init_net.get_params()[-1].get_value() + 0.5)
 
         self.min_std = min_std
 

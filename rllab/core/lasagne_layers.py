@@ -488,3 +488,51 @@ class MaskedDenseLayer(L.Layer):
             activation += (T.dot(input[:, 0:-self.split_num], self.Ws[i]*self.split_mask_W) + (self.bs[i]* self.split_mask_b).dimshuffle('x', 0)) * activation_mask
 
         return self.nonlinearity(activation)
+
+class MaskedDenseLayerCont(L.Layer):
+    def __init__(self, incoming, num_units, init_layer, task_id = 0, W=LI.GlorotUniform(),
+                 b=LI.Constant(0.), nonlinearity=LN.rectify, freeze_first = False,
+                 **kwargs):
+        super(MaskedDenseLayerCont, self).__init__(incoming, **kwargs)
+        self.nonlinearity = (LN.identity if nonlinearity is None
+                             else nonlinearity)
+
+        self.num_units = num_units
+
+        num_inputs = int(np.prod(self.input_shape[1:]))
+
+        self.Ws = []
+        self.bs = []
+        for i in range(2):
+            append='split'
+            if i == 0:
+                append='share'
+            trainable=False
+            if i != 0:
+                trainable = True
+            self.Ws.append(self.add_param(W, (num_inputs, num_units), name="W"+append+"%d"%(i), trainable=trainable))
+
+            self.get_params()[-1].set_value(init_layer.get_params()[i*task_id*2].get_value())
+
+            self.bs.append(self.add_param(b, (num_units,), name="b"+append+"%d"%(i),
+                                    regularizable=False, trainable=trainable))
+            self.get_params()[-1].set_value(init_layer.get_params()[i*task_id*2+1].get_value())
+        self.split_mask_W = init_layer.split_mask_W
+        self.share_mask_W = np.ones((num_inputs, num_units)) - init_layer.split_mask_W
+        self.split_mask_b = init_layer.split_mask_b
+        self.share_mask_b = np.ones((num_units,)) - init_layer.split_mask_b
+        self.input_size = num_inputs
+
+    def get_output_shape_for(self, input_shape):
+        return (input_shape[0], self.num_units)
+
+    def get_output_for(self, input, **kwargs):
+        if input.ndim > 2:
+            # if the input has more than two dimensions, flatten it into a
+            # batch of feature vectors.
+            input = input.flatten(2)
+
+        activation = T.dot(input, self.Ws[0]*self.share_mask_W) + T.dot(input, self.Ws[1]*self.split_mask_W)
+        activation = activation + (self.bs[0]* self.share_mask_b).dimshuffle('x', 0) + (self.bs[1]* self.split_mask_b).dimshuffle('x', 0)
+
+        return self.nonlinearity(activation)

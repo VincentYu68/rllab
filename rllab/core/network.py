@@ -6,7 +6,7 @@ import lasagne.init as LI
 import theano.tensor as TT
 import theano
 from rllab.misc import ext
-from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer, PhaseLayer, MaskedDenseLayer
+from rllab.core.lasagne_layers import OpLayer, RBFLayer, SplitLayer, ElemwiseMultLayer, PhaseLayer, MaskedDenseLayer, MaskedDenseLayerCont
 from rllab.core.lasagne_powered import LasagnePowered
 from rllab.core.serializable import Serializable
 
@@ -2294,6 +2294,79 @@ class MLP_MaskedSplit(LasagnePowered, Serializable):
             split_num = split_num,
             split_mask_W = split_masks[layer_id*2],
             split_mask_b = split_masks[layer_id*2+1],
+            name="%soutput" % (prefix),
+            W=output_W_init,
+            b=output_b_init,
+        )
+        self._layers.append(l_out)
+
+        self._l_in = l_in
+        self._l_out = l_out
+        # self._input_var = l_in.input_var
+        self._output = L.get_output(l_out)
+        LasagnePowered.__init__(self, [l_out])
+
+    @property
+    def input_layer(self):
+        return self._l_in
+
+    @property
+    def output_layer(self):
+        return self._l_out
+
+    @property
+    def layers(self):
+        return self._layers
+
+    @property
+    def output(self):
+        return self._output
+
+
+class MLP_MaskedSplitCont(LasagnePowered, Serializable):
+    def __init__(self, output_dim, hidden_sizes, hidden_nonlinearity,
+                 output_nonlinearity, task_id, init_net, hidden_W_init=LI.GlorotUniform(), hidden_b_init=LI.Constant(0.),
+                 output_W_init=LI.GlorotUniform(), output_b_init=LI.Constant(0.),
+                 name=None, input_var=None, input_layer=None, input_shape=None, batch_norm=False):
+        Serializable.quick_init(self, locals())
+
+        if name is None:
+            prefix = ""
+        else:
+            prefix = name + "_"
+
+        if input_layer is None:
+            l_in = L.InputLayer(shape=(None,) + input_shape, input_var=input_var)
+        else:
+            l_in = input_layer
+        self._layers = [l_in]
+        layer_id = 0
+
+        l_hid = l_in
+        for idx, hidden_size in enumerate(hidden_sizes):
+            split_layers = []
+            l_hid = MaskedDenseLayerCont(
+                l_hid,
+                num_units=(hidden_size),
+                nonlinearity=hidden_nonlinearity,
+                init_layer=init_net.layers[idx+3],
+                task_id=task_id,
+                name="%shidden_%d" % (prefix, idx),
+                W=hidden_W_init,
+                b=hidden_b_init,
+            )
+            self._layers.append(l_hid)
+
+            layer_id += 1
+
+        split_outputs = []
+
+        l_out = MaskedDenseLayerCont(
+            l_hid,
+            num_units=(output_dim),
+            nonlinearity=output_nonlinearity,
+            init_layer=init_net.layers[-1],
+            task_id=task_id,
             name="%soutput" % (prefix),
             W=output_W_init,
             b=output_b_init,
