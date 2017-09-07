@@ -111,7 +111,10 @@ def perform_evaluation(num_parallel,
                        test_num=1,
                        param_update_start = 50,
                        param_update_frequency = 50,
-                       param_update_end = 200):
+                       param_update_end = 200,
+                       use_param_variance = 0,
+                       param_variance_batch = 10000,
+                       param_variance_sample = 100):
     reps = 1
 
     learning_curves = []
@@ -136,8 +139,8 @@ def perform_evaluation(num_parallel,
         if env._wrapped_env.monitoring:
             dartenv = dartenv.env
 
-        np.random.seed(testit * 3 + 2)
-        random.seed(testit * 3 + 2)
+        np.random.seed(testit * 3 + seed)
+        random.seed(testit * 3 + seed)
 
         pre_training_learning_curve = []
 
@@ -162,7 +165,7 @@ def perform_evaluation(num_parallel,
             n_itr=5,
 
             discount=0.995,
-            step_size=0.01,
+            step_size=0.02,
             gae_lambda=0.97,
             whole_paths=False,
             # task_num=task_size,
@@ -206,10 +209,6 @@ def perform_evaluation(num_parallel,
             joblib.dump(policy, diretory + '/init_policy.pkl', compress=True)
 
         print('------- initial training complete ---------------')
-        task_grads = []
-        for i in range(task_size):
-            task_grads.append([])
-
         if not load_split_data:
             split_data = []
             net_weights = []
@@ -256,13 +255,16 @@ def perform_evaluation(num_parallel,
             net_weight_values = joblib.load(diretory + '/net_weight_values.pkl')
             pre_training_learning_curve = joblib.load(diretory + '/pretrain_learningcurve.pkl')
 
+        task_grads = []
+        variance_grads = []
+        for i in range(task_size):
+            task_grads.append([])
         for i in range(grad_epochs):
             policy.set_param_values(net_weight_values[i])
             task_paths = []
             for j in range(task_size):
                 task_paths.append([])
             for path in split_data[i]:
-                taskid = 0
                 taskid = path['env_infos']['state_index'][-1]
                 task_paths[taskid].append(path)
 
@@ -270,7 +272,31 @@ def perform_evaluation(num_parallel,
                 samples_data = algo.sampler.process_samples(0, task_paths[j], False)
                 grad = get_gradient(algo, samples_data, False)
                 task_grads[j].append(grad)
+            if use_param_variance == 1 and i == grad_epochs-1:
+                for j in range(param_variance_sample):
+                    cur_batch = 0
+                    sampled_rollouts = []
+                    indices = np.arange(len(split_data[i]))
+                    np.random.shuffle(indices)
+                    for k in range(len(indices)):
+                        sampled_rollouts.append(split_data[i][indices[k]])
+                        cur_batch += len(split_data[i][indices[k]]['env_infos']['state_index'])
+                        if cur_batch > param_variance_batch:
+                            break
+                    samples_data = algo.sampler.process_samples(0, sampled_rollouts, False)
+                    grad = get_gradient(algo, samples_data, False)
+                    variance_grads.append(grad)
             algo.sampler.process_samples(0, split_data[i])
+
+        weight_variances = []
+        for i in range(len(task_grads[0][0]) - 1):
+            weight_variances.append(np.zeros(task_grads[0][0][i].shape))
+        if use_param_variance == 1:
+            for k in range(len(task_grads[0][0]) - 1):
+                one_grad = []
+                for g in range(len(variance_grads)):
+                    one_grad.append(np.asarray(variance_grads[g][k]))
+                weight_variances[k] += np.var(one_grad, axis=0)
 
         print('------- collected gradient info -------------')
 
@@ -302,22 +328,36 @@ def perform_evaluation(num_parallel,
                 plt.plot(split_counts[j])
 
             plt.savefig(diretory + '/' + policy._mean_network.get_params()[j].name + '.png')
+
+            if use_param_variance:
+                plt.figure()
+                plt.title(policy._mean_network.get_params()[j].name)
+                if len(weight_variances[j].shape) == 2:
+                    plt.imshow(weight_variances[j])
+                    plt.colorbar()
+                elif len(weight_variances[j].shape) == 1:
+                    plt.plot(weight_variances[j])
+
+                plt.savefig(diretory + '/' + policy._mean_network.get_params()[j].name + '_variances.png')
+
         algo.shutdown_worker()
 
         # organize the metric into each edges and sort them
         split_metrics = []
         metrics_list = []
-        for k in range(len(task_grads[0][0]) - 1):
+        variance_list = []
+        for k in range(len(task_grads[0][0])):
             for index, value in np.ndenumerate(split_counts[k]):
-                split_metrics.append([k, index, value])
+                split_metrics.append([k, index, value, weight_variances[k][index]])
                 metrics_list.append(value)
-        split_metrics.sort(key=lambda x: x[2], reverse=True)
+                variance_list.append(weight_variances[k][index])
+        if use_param_variance == 0:
+            split_metrics.sort(key=lambda x: x[2], reverse=True)
+        else:
+            split_metrics.sort(key=lambda x: x[3], reverse=False)
 
         # test the effect of splitting
         total_param_size = len(policy._mean_network.get_param_values())
-
-        for i in range(int(len(split_counts))):
-            split_counts[i] *= 0
 
         pred_list = []
         # use the optimized network
@@ -402,7 +442,7 @@ def perform_evaluation(num_parallel,
                 n_itr=5,
 
                 discount=0.995,
-                step_size=0.01,
+                step_size=0.02,
                 gae_lambda=0.97,
                 whole_paths=False,
                 # task_num=task_size,
