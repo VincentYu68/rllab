@@ -427,7 +427,7 @@ def perform_evaluation(num_parallel,
             if split_param_size == 0:
                 baseline_add = 0
             else:
-                baseline_add = task_size*0  # use 0 for now, though task_size should in theory improve performance more
+                baseline_add = task_size  # use 0 for now, though task_size should in theory improve performance more
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=baseline_add)
 
             new_batch_size = batch_size
