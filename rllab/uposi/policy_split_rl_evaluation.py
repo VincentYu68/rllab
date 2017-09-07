@@ -427,7 +427,7 @@ def perform_evaluation(num_parallel,
             if split_param_size == 0:
                 baseline_add = 0
             else:
-                baseline_add = task_size  # use 0 for now, though task_size should in theory improve performance more
+                baseline_add = task_size*0  # use 0 for now, though task_size should in theory improve performance more
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=baseline_add)
 
             new_batch_size = batch_size
@@ -564,8 +564,7 @@ def perform_evaluation(num_parallel,
                             ls_steps.append(0.95 ** s)
                         for step in ls_steps:
                             split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
-                            if split_algo.mean_kl(all_data)[
-                                0] < split_algo.step_size:  # and split_algo.loss(all_data)[0] < loss_before[0]:
+                            if split_algo.mean_kl(all_data)[0] < split_algo.step_size:  # and split_algo.loss(all_data)[0] < loss_before[0]:
                                 break
                         # step=1
 

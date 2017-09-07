@@ -14,7 +14,7 @@ import numpy as np
 import random
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartReacher3d-v1", record_log=False, record_video=False))
 
     mp_dim = 1
     policy_pre = joblib.load('data/trained/gradient_temp/rl_split_hopper_3models_taskinput_6432net_sd4_splitstd_maskedgrad_specbaseline_40k_70_30_unweighted_accumulate_gradient/final_policy_0.1.pkl')
@@ -44,7 +44,7 @@ def run_task(*_):
         batch_size=13333,
 
         max_path_length=env.horizon,
-        n_itr=100,
+        n_itr=400,
 
         discount=0.995,
         step_size=0.01,
@@ -61,13 +61,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=2,
+    n_parallel=5,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=2,
-    exp_name='hopper_newshape2',
+    exp_name='reacher_v0_sanity',
 
     # plot=True,
 )
