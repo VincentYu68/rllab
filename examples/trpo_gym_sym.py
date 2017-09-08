@@ -15,16 +15,16 @@ import numpy as np
 import random
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker3d-v1"))#, record_log=False, record_video=False))
+    env = normalize(GymEnv("DartWalker3d-v1", record_log=False, record_video=False))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64,64),
+        hidden_sizes=(128,64),
 
         net_mode=0,
     )
-    #policy = joblib.load('data/local/experiment/walker3d_symmetry/policy.pkl')
+    #policy = joblib.load('data/local/experiment/walker3d_sym_2d/policy.pkl')
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
     baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
@@ -40,13 +40,15 @@ def run_task(*_):
         max_path_length=env.horizon,
         n_itr=500,
 
-        discount=0.995,
-        step_size=0.01,
+        discount=0.99,
+        step_size=0.02,
         gae_lambda=0.97,
         observation_permutation=np.array([0.0001,-1, 2,-3,-4, -5,-6,7, 14,-15,-16, 17, 18,-19, 8,-9,-10, 11, 12,-13,\
                                           20,21,-22, 23,-24,-25, -26,-27,28, 35,-36,-37, 38, 39,-40, 29,-30,-31, 32, 33,-34]),
-        action_permutation=np.array([-0.0001, -1, 2, 9,-10,-11, 12, 13,-14, 3,-4,-5, 6, 7, -8]),
-        sym_loss_weight=0.2,
+        #action_permutation=np.array([-0.0001, -1,-5,-6,-7,-2,-3, -4]),
+        action_permutation=np.array([-0.0001, -1, 2, 9, -10, -11, 12, 13, -14, 3, -4, -5, 6, 7, -8]),
+        sym_loss_weight=0.5,
+        whole_paths=False,
     )
     algo.train()
 
@@ -54,13 +56,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=2,
+    n_parallel=4,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=4,
-    exp_name='walker3d_symmetry3',
+    seed=3,
+    exp_name='walker3d_2dtranslation_newwaistlimit_symmetry05_sd3',
 
     # plot=True,
 )
