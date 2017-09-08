@@ -25,6 +25,7 @@ def run_task(*_):
         net_mode=0,
     )
     #policy = joblib.load('data/local/experiment/walker3d_sym_2d/policy.pkl')
+
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
     baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
@@ -47,6 +48,7 @@ def run_task(*_):
                                           20,21,-22, 23,-24,-25, -26,-27,28, 35,-36,-37, 38, 39,-40, 29,-30,-31, 32, 33,-34]),
         #action_permutation=np.array([-0.0001, -1,-5,-6,-7,-2,-3, -4]),
         action_permutation=np.array([-0.0001, -1, 2, 9, -10, -11, 12, 13, -14, 3, -4, -5, 6, 7, -8]),
+
         sym_loss_weight=0.5,
         whole_paths=False,
     )
