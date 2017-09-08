@@ -274,16 +274,16 @@ def perform_evaluation(num_parallel,
                 task_grads[j].append(grad)
             if use_param_variance == 1 and i == grad_epochs-1:
                 for j in range(param_variance_sample):
-                    cur_batch = 0
-                    sampled_rollouts = []
-                    indices = np.arange(len(split_data[i]))
+                    samples_data_ori = algo.sampler.process_samples(0, split_data[i], False)
+                    samples_data = {}
+                    indices = np.arange(len(samples_data_ori['observations']))
                     np.random.shuffle(indices)
-                    for k in range(len(indices)):
-                        sampled_rollouts.append(split_data[i][indices[k]])
-                        cur_batch += len(split_data[i][indices[k]]['env_infos']['state_index'])
-                        if cur_batch > param_variance_batch:
-                            break
-                    samples_data = algo.sampler.process_samples(0, sampled_rollouts, False)
+                    samples_data["observations"] = samples_data_ori["observations"][indices[0:param_variance_batch]]
+                    samples_data["actions"] = samples_data_ori["actions"][indices[0:param_variance_batch]]
+                    samples_data["rewards"] = samples_data_ori["rewards"][indices[0:param_variance_batch]]
+                    samples_data["advantages"] = samples_data_ori["advantages"][indices[0:param_variance_batch]]
+                    samples_data["env_infos"] = samples_data_ori["env_infos"][indices[0:param_variance_batch]]
+                    samples_data["agent_infos"] = samples_data_ori["agent_infos"][indices[0:param_variance_batch]]
                     grad = get_gradient(algo, samples_data, False)
                     variance_grads.append(grad)
             algo.sampler.process_samples(0, split_data[i])
