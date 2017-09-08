@@ -346,7 +346,7 @@ def perform_evaluation(num_parallel,
         split_metrics = []
         metrics_list = []
         variance_list = []
-        for k in range(len(task_grads[0][0])):
+        for k in range(len(task_grads[0][0])-1):
             for index, value in np.ndenumerate(split_counts[k]):
                 split_metrics.append([k, index, value, weight_variances[k][index]])
                 metrics_list.append(value)

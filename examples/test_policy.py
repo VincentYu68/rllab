@@ -26,8 +26,8 @@ if __name__ == '__main__':
     if hasattr(env.env, 'resample_MP'):
         env.env.resample_MP = False
 
-    #env_wrapper = wrappers.Monitor(env, 'data/videos/', force=True)
-    env_wrapper = env
+    env_wrapper = wrappers.Monitor(env, 'data/videos/', force=True)
+    #env_wrapper = env
 
     dyn_models = joblib.load('data/trained/dyn_models.pkl')
     env.env.dyn_models = dyn_models
@@ -56,7 +56,6 @@ if __name__ == '__main__':
             act = a#ainfo['mean']
         else:
             act = env.action_space.sample()
-        act[2] = -2.0
         if hasattr(policy, '_lowlevelnetwork'):
             lowa = policy.lowlevel_action(o, act)
             o, r, d, env_info = env_wrapper.step(lowa)
