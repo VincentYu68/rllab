@@ -22,12 +22,12 @@ def run_task(*_):
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(2,),
+        hidden_sizes=(64,32),
 
         net_mode=0,
     )
 
-    init_policy = joblib.load('data/local/experiment/hopper_torso0110_sd3_additionaldim_threetask/policy_0.pkl')
+    '''init_policy = joblib.load('data/local/experiment/hopper_torso0110_sd3_additionaldim_threetask/policy_0.pkl')
     masks = []
     params = init_policy.get_params()
     for k in range(len(params) - 1):
@@ -41,13 +41,13 @@ def run_task(*_):
         split_num=2,
         split_masks=masks,
         split_init_net=init_policy,
-    )
+    )'''
 
     #policy = joblib.load('data/local/experiment/hopper_torso0110_sd3_additionaldim_threetask/policy_0.pkl')
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
 
-    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=2)
+    baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
     #policy = params['policy']
     #baseline = params['baseline']
@@ -57,10 +57,10 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=30000,
+        batch_size=7500,
 
         max_path_length=env.horizon,
-        n_itr=100,
+        n_itr=400,
 
         discount=0.995,
         step_size=0.01,
@@ -70,6 +70,7 @@ def run_task(*_):
         #epopt_after_iter = 0,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
         # plot=True,
+        whole_paths=False,
     )
     algo.train()
 
@@ -83,7 +84,7 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=3,
-    exp_name='hopper_torso0110_sd3_additionaldim_twotask_splitpolicy_addbaseline_2',
+    exp_name='hopper_box_test',
 
     # plot=True,
 )
