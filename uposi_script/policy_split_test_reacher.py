@@ -3,7 +3,7 @@ __author__ = 'yuwenhao'
 from  rllab.uposi.policy_split_rl_evaluation import *
 
 if __name__ == '__main__':
-    num_parallel = 7
+    num_parallel = 14
 
     hidden_size = (64, 32)
     batch_size = 40000
@@ -13,10 +13,10 @@ if __name__ == '__main__':
     prioritized_split = False
     adaptive_sample = False
 
-    initialize_epochs = 0
-    grad_epochs = 1
+    initialize_epochs = 95
+    grad_epochs = 5
     test_epochs = 400
-    append = 'reacher_3models_alivepenalty_taskinput_6432net_sd0_vanbaseline_splitstd_accumgrad_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    append = 'reacher_3modelsexp1_gradvariance2_alivepenalty_tasksplit_taskinput_6432net_sd1_vanbaseline_splitstd_accumgrad_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
     env_name = "DartReacher3d-v1"
     task_size = 3
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     if accumulate_gradient:
         append += '_accumulate_gradient'
 
-    split_percentages = [0.0, 1.0]
+    split_percentages = [0.15, 0.3]
 
     perform_evaluation(num_parallel, hidden_size,
                        batch_size,
@@ -61,5 +61,6 @@ if __name__ == '__main__':
                        sample_ratio,
                        split_percentages,
                        env_name,
-                       seed=0,
-                       test_num=3)
+                       seed=1,
+                       test_num=3,
+                       use_param_variance=1)
