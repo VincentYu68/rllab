@@ -26,12 +26,13 @@ import copy
 import matplotlib.pyplot as plt
 import os
 from policy_split_supervised_edgewise import test, synthesize_data, sample_tasks, train
+import datetime
 
 if __name__ == '__main__':
-    dim = 20
+    dim = 10
     in_dim = dim+1
     out_dim = dim
-    task_num = 3
+    task_num = 1
     random_split = False
     prioritized_split = False
     append = 'edgewise_grid'+str(dim)
@@ -40,17 +41,17 @@ if __name__ == '__main__':
         append += '_rand'
         if prioritized_split:
             append += '_prio'
-    init_epochs = 70
+    init_epochs = 80
     batch_size = 10000
-    epochs = 30
-    test_epochs = 300
-    hidden_size = (64, 64)
+    epochs = 20
+    test_epochs = 200
+    hidden_size = (64, 32)
     append += str(batch_size) + ':_' + str(init_epochs) + '_' + str(epochs) + '_' + str(test_epochs)+'_' + str(hidden_size)
 
 
-    task_similarities = [0, 10, 20]
-    split_percentages = [0.0, 0.5, 1.0] # 2.0 means using mean + 1 std as the threshold
-    test_num = 3
+    task_similarities = [0, 2, 4, 6, 8, 10]
+    split_percentages = [0.000001, 0.2, 0.4, 0.6, 0.8, 0.999] # 2.0 means using mean + 1 std as the threshold
+    test_num = 2
     performances = []
 
     if not os.path.exists('data/trained/gradient_temp/supervised_split_' + append):
@@ -58,7 +59,11 @@ if __name__ == '__main__':
 
     for similarity in task_similarities:
         performances.append([])
+        one_sim_perf = []
+        print('------------- test similarity ', similarity, ' --------------------')
         for testit in range(test_num):
+            print('--------- start test ', testit, ' ----------------')
+            one_sim_perf.append([])
             seed = testit*3+1
             np.random.seed(seed)
 
@@ -108,10 +113,6 @@ if __name__ == '__main__':
                     task_grads[j].append(grad)
             print('------- collected gradient info -------------')
 
-            testXs, testYs = synthesize_data(dim, 2000, tasks)
-            pred = out(np.concatenate(testXs))
-            print(np.linalg.norm(pred-np.concatenate(testYs))/len(pred))
-
             split_counts = []
             for i in range(len(task_grads[0][0])):
                 split_counts.append(np.zeros(task_grads[0][0][i].shape))
@@ -120,7 +121,7 @@ if __name__ == '__main__':
                 for k in range(len(task_grads[0][i])):
                     region_gradients = []
                     for region in range(len(task_grads)):
-                        region_gradients.append(task_grads[region][i][k])
+                        region_gradients.append(np.asarray(task_grads[region][i][k]))
                     region_gradients = np.array(region_gradients)
                     if not random_split:
                         split_counts[k] += np.var(region_gradients, axis=0)# * np.abs(net_weights[i][k]) # + 100 * (len(task_grads[0][i])-k)
@@ -148,6 +149,8 @@ if __name__ == '__main__':
             sanity = out([np.concatenate([np.arange(dim), [0]])])
 
             for split_id, split_percentage in enumerate(split_percentages):
+                print('-------------- testing percentage ', split_percentage, ' ------------------')
+                print(datetime.datetime.now())
                 split_param_size = int(split_percentage * total_param_size)
                 current_split_size = 0
                 masks = []
@@ -191,13 +194,13 @@ if __name__ == '__main__':
                 params_split = split_network.get_params(trainable=True)
                 updates_split = lasagne.updates.adam(loss_split, params_split, learning_rate=0.002)
                 train_fn_split = T.function([split_network.input_layer.input_var, out_var], loss_split, updates=updates_split, allow_input_downcast=True)
-                out = T.function([split_network.input_layer.input_var], prediction, allow_input_downcast=True)
+                splitout = T.function([split_network.input_layer.input_var], prediction, allow_input_downcast=True)
                 gradsplit = T.grad(loss_split, params_split, disconnected_inputs='warn')
                 gradsplit_fn = T.function([split_network.input_layer.input_var, out_var], gradsplit, allow_input_downcast=True)
                 losssplit_fn = T.function([split_network.input_layer.input_var, out_var], loss_split, allow_input_downcast=True)
                 split_init_param = np.copy(split_network.get_param_values())
                 if split_param_size != 0:
-                    print(split_percentage, sanity, out([np.concatenate([np.arange(dim), [0, 1], [0]*len(difficulties)])]))
+                    print(split_percentage, sanity, splitout([np.concatenate([np.arange(dim), [0, 1], [0]*len(difficulties)])]))
                 avg_error = 0.0
                 avg_learning_curve = []
 
@@ -207,16 +210,18 @@ if __name__ == '__main__':
                     Xs, Ys = synthesize_data(dim, batch_size, tasks, split_param_size != 0, seed = seed)
                     losses = train(train_fn_split, np.concatenate(Xs), np.concatenate(Ys), test_epochs, batch = 32, shuffle=True)
 
-                    #testXs, testYs = synthesize_data(dim, 10000, tasks, split_param_size != 0)
+                    testXs, testYs = synthesize_data(dim, 10000, tasks, split_param_size != 0)
 
-                    avg_error += test(out, np.concatenate(Xs), np.concatenate(Ys))
+                    avg_error += test(splitout, np.concatenate(testXs), np.concatenate(testYs))
                     avg_learning_curve.append(losses)
 
-                performances[-1].append(avg_error / reps)
+                one_sim_perf[-1].append(avg_error / reps)
                 print(split_percentage, avg_error / reps)
+        performances[-1].append(np.mean(one_sim_perf, axis=0))
+    print(performances)
 
-    np.savetxt('data/trained/gradient_temp/supervised_split_' + append + '/performance.txt', performances)
-    plt.imshow(np.reshape(performances, (len(task_similarities), len(split_percentages))), extent=[0, 1, 1, 0])
+    joblib.dump(performances, 'data/trained/gradient_temp/supervised_split_' + append + '/performance.pkl', compress=True)
+    plt.imshow(np.reshape(np.array(performances), (len(task_similarities), len(split_percentages))), extent=[0, 1, 1, 0])
     plt.colorbar()
     plt.xlabel('Task Similarities')
     plt.ylabel('Split Percentages')

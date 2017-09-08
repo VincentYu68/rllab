@@ -352,7 +352,7 @@ def perform_evaluation(num_parallel,
                 metrics_list.append(value)
                 variance_list.append(weight_variances[k][index])
         if use_param_variance == 0:
-            split_metrics.sort(key=lambda x: x[2], reverse=True)
+            split_metrics.sort(key=lambda x: x[2], reverse=False)
         else:
             split_metrics.sort(key=lambda x: x[3], reverse=False)
 
@@ -427,7 +427,7 @@ def perform_evaluation(num_parallel,
             if split_param_size == 0:
                 baseline_add = 0
             else:
-                baseline_add = task_size  # use 0 for now, though task_size should in theory improve performance more
+                baseline_add = task_size*0  # use 0 for now, though task_size should in theory improve performance more
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=baseline_add)
 
             new_batch_size = batch_size
