@@ -131,7 +131,7 @@ def test(out_fn, X, Y):
     return np.mean((pred-Y)**2)
 
 if __name__ == '__main__':
-    dim = 20
+    dim = 16
     in_dim = dim+1
     out_dim = dim
     difficulties = [11, 11]
@@ -139,6 +139,7 @@ if __name__ == '__main__':
     random_split = False
     prioritized_split = False
     append = 'edgewise_test_'+str(dim)+':'+str(difficulties)
+
     reps = 1
     if random_split:
         append += '_rand'
@@ -151,6 +152,7 @@ if __name__ == '__main__':
     epochs = 20
     test_epochs = 100
     hidden_size = (64, 32)
+
     append += str(batch_size) + ':_' + str(init_epochs) + '_' + str(epochs) + '_' + str(test_epochs)+'_' + str(hidden_size)
 
 
@@ -170,6 +172,7 @@ if __name__ == '__main__':
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
         seed = testit*3+2
+
         np.random.seed(seed)
 
         tasks = sample_tasks(dim, difficulties)
@@ -208,6 +211,7 @@ if __name__ == '__main__':
         for i in range(len(Xs)):
             task_grads.append([])
             task_grad_samples.append([])
+
         total_grads = []
         net_weight_values = []
         #for i in range(epochs):
@@ -264,6 +268,7 @@ if __name__ == '__main__':
                 task_grad_means[i].append(np.mean(one_param, axis=0))
                 task_grad_stds[i].append(np.std(one_param, axis=0))
 
+
         for i in range(len(task_grads[0])):
             for k in range(len(task_grads[0][i])):
                 region_gradients = []
@@ -286,6 +291,7 @@ if __name__ == '__main__':
                     one_grad.append(np.asarray(total_grads[g][k]))
                 weight_variances[k] += np.var(one_grad, axis=0)
                 weight_means[k] += np.mean(one_grad, axis=0)
+
 
         for j in range(len(split_counts)):
             plt.figure()
@@ -315,7 +321,18 @@ if __name__ == '__main__':
                 plt.colorbar()
             elif len(network.get_params()[j].get_value().shape) == 1:
                 plt.plot(network.get_params()[j].get_value())
+
             plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/' + network.get_params()[j].name + '.png')
+
+        for j in range(len(weight_variances)):
+            plt.figure()
+            plt.title(network.get_params()[j].name)
+            if len(weight_variances[j].shape) == 2:
+                plt.imshow(weight_variances[j])
+                plt.colorbar()
+            elif len(weight_variances[j].shape) == 1:
+                plt.plot(weight_variances[j])
+            plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/' + network.get_params()[j].name + '_variances.png')
 
         # organize the metric into each edges and sort them
         split_metrics = []

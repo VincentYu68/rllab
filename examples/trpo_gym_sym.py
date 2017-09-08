@@ -15,16 +15,16 @@ import numpy as np
 import random
 
 def run_task(*_):
-    env = normalize(GymEnv("DartWalker2d-v1"))#, record_log=False, record_video=False))
+    env = normalize(GymEnv("DartWalker3d-v1"))#, record_log=False, record_video=False))
 
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(32,32),
+        hidden_sizes=(100,50,25),
 
         net_mode=0,
     )
-
+    policy = joblib.load('data/local/experiment/walker3d_2d_newlimit_symmetry_05_sd7/policy.pkl')
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
     baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
@@ -35,17 +35,25 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=30000,
+        batch_size=50000,
 
         max_path_length=env.horizon,
-        n_itr=300,
+        n_itr=500,
 
-        discount=0.995,
-        step_size=0.01,
+        discount=0.99,
+        step_size=0.02,
         gae_lambda=0.97,
-        observation_permutation=np.array([0,1, 5,6,7, 2,3,4, 8,9,10, 14,15,16, 11,12,13]),
-        action_permutation=np.array([3,4,5,0,1,2]),
-        sym_loss_weight=0.0,
+        observation_permutation=np.array([0.0001,-1, 2,-3,-4, -5,-6,7, 14,-15,-16, 17, 18,-19, 8,-9,-10, 11, 12,-13,\
+                                          20,21,-22, 23,-24,-25, -26,-27,28, 35,-36,-37, 38, 39,-40, 29,-30,-31, 32, 33,-34]),
+        action_permutation=np.array([-0.0001, -1, 2, 9,-10,-11, 12, 13,-14, 3,-4,-5, 6, 7, -8]),
+        #action_permutation=np.array([-0.0001, -1,-5,-6,-7,-2,-3, -4]),
+
+        #observation_permutation=np.array([0.0001, -1,2,-3,-4,5,-6,11,12,13,14,7,8,9,10,-18,-19,20,-15,-16,17,\
+        #                                  21,-22,23,-24,25,-26, -27,28,-29, 34,35,36,37, 30,31,32,33, -41,-42,43, -38,-39, 40]),
+        #action_permutation=np.array([0.0001, -1, -2,  7,8,9,10, 3,4,5,6, -14,-15,16,-11,-12,13]),
+        #action_permutation=np.array([-0.0001, -1, 4,5, 2,3, -9,-10,11,-6,-7,8]),
+        sym_loss_weight=0.5,
+        whole_paths=False,
     )
     algo.train()
 
@@ -58,8 +66,8 @@ run_experiment_lite(
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=3,
-    exp_name='walker2d_vanilla',
+    seed=7,
+    exp_name='walker3d_2d_newlimit_symmetry_05_sd7_2alivebonus',
 
     # plot=True,
 )

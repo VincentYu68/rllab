@@ -21,13 +21,13 @@ if __name__ == '__main__':
     else:
         env = gym.make('DartWalker3dRestricted-v1')
 
-    #env_wrapper = wrappers.Monitor(env, 'data/videos/', force=True, video_callable=False)
-    env_wrapper = env
-
     if hasattr(env.env, 'disableViewer'):
         env.env.disableViewer = False
     if hasattr(env.env, 'resample_MP'):
         env.env.resample_MP = False
+
+    #env_wrapper = wrappers.Monitor(env, 'data/videos/', force=True)
+    env_wrapper = env
 
     dyn_models = joblib.load('data/trained/dyn_models.pkl')
     env.env.dyn_models = dyn_models
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     if hasattr(env.env, 'param_manager'):
         #env.env.param_manager.resample_parameters()
-        env.env.param_manager.set_simulator_parameters([0.7, 0.45])
+        #env.env.param_manager.set_simulator_parameters([0.7, 0.45])
         #env.env.resample_MP = True
         print('Model Parameters: ', env.env.param_manager.get_simulator_parameters())
 
@@ -48,13 +48,15 @@ if __name__ == '__main__':
 
     rew = 0
 
-    for i in range(2500):
+    traj = 10
+    ct = 0
+    while ct < traj:
         if policy is not None:
             a, ainfo = policy.get_action(o)
             act = a#ainfo['mean']
         else:
             act = env.action_space.sample()
-
+        act[2] = -2.0
         if hasattr(policy, '_lowlevelnetwork'):
             lowa = policy.lowlevel_action(o, act)
             o, r, d, env_info = env_wrapper.step(lowa)
@@ -67,10 +69,13 @@ if __name__ == '__main__':
 
         #time.sleep(0.1)
 
-        if d or i == 2499:
+        if d:
+            ct += 1
             print('reward: ', rew)
             o=env_wrapper.reset()
             #break
+    print('avg rew ', rew / traj)
+
 
     #plt.plot(thigh_torque_1)
     #plt.plot(thigh_torque_2)

@@ -44,9 +44,9 @@ class TRPO_Symmetry(NPO):
         self.obs_perm_mat = np.zeros((len(observation_permutation), len(observation_permutation)))
         self.act_per_mat = np.zeros((len(action_permutation), len(action_permutation)))
         for i, perm in enumerate(self.observation_permutation):
-            self.obs_perm_mat[i][perm] = 1
+            self.obs_perm_mat[i][int(np.abs(perm))] = np.sign(perm)
         for i, perm in enumerate(self.action_permutation):
-            self.act_per_mat[i][perm] = 1
+            self.act_per_mat[i][int(np.abs(perm))] = np.sign(perm)
 
     def init_opt(self):
         is_recurrent = int(self.policy.recurrent)
