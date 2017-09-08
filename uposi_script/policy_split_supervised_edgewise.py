@@ -26,6 +26,11 @@ import copy
 import matplotlib.pyplot as plt
 import os
 
+def KLDiv(m1, s1, m2, s2):
+    return np.log(np.log(s2)-np.log(s1) + (s1**2 + (m1-m2)**2)/(2*(s2**2)) - 0.5)
+
+def symKLDiv(m1, s1, m2, s2):
+    return KLDiv(m1, s1, m2, s2) + KLDiv(m2, s2, m1, s1)
 
 def train(train_fn, X, Y, iter, batch = 32, shuffle=True):
     X=np.array(X)
@@ -64,7 +69,7 @@ def sample_tasks(dim, difficulties, seed = None):
         for mutation in range(int(difficulty)):
             mutate_target = unmutated_lsit[np.random.randint(len(unmutated_lsit))]
             unmutated_lsit.remove(mutate_target)
-            type = 0#np.random.randint(1)
+            type = 1#np.random.randint(1)
             idx1 = np.random.randint(dim)
             while idx1 == mutate_target:
                 idx1 = np.random.randint(dim)
@@ -129,20 +134,25 @@ if __name__ == '__main__':
     dim = 16
     in_dim = dim+1
     out_dim = dim
-    difficulties = [6,7]
+    difficulties = [11, 11]
+    cross_task_kldivergence = True
     random_split = False
     prioritized_split = False
-    append = 'edgewise_test_oldmethod_'+str(dim)+':'+str(difficulties)
+    append = 'edgewise_test_'+str(dim)+':'+str(difficulties)
+
     reps = 1
     if random_split:
         append += '_rand'
         if prioritized_split:
             append += '_prio'
-    init_epochs = 50
+    if cross_task_kldivergence:
+        append += '_crosstaskKL'
+    init_epochs = 100
     batch_size = 10000
     epochs = 20
-    test_epochs = 200
-    hidden_size = (64, 64)
+    test_epochs = 100
+    hidden_size = (64, 32)
+
     append += str(batch_size) + ':_' + str(init_epochs) + '_' + str(epochs) + '_' + str(test_epochs)+'_' + str(hidden_size)
 
 
@@ -161,7 +171,8 @@ if __name__ == '__main__':
 
     for testit in range(test_num):
         print('======== Start Test ', testit, ' ========')
-        seed = testit*3+5
+        seed = testit*3+2
+
         np.random.seed(seed)
 
         tasks = sample_tasks(dim, difficulties)
@@ -196,8 +207,11 @@ if __name__ == '__main__':
 
         #Xs, Ys = synthesize_data(dim, 2000, tasks)
         task_grads = []
+        task_grad_samples = []
         for i in range(len(Xs)):
             task_grads.append([])
+            task_grad_samples.append([])
+
         total_grads = []
         net_weight_values = []
         #for i in range(epochs):
@@ -209,6 +223,13 @@ if __name__ == '__main__':
             for j in range(len(Xs)):
                 grad = grad_fn(Xs[j], Ys[j])
                 task_grads[j].append(grad)
+
+                for k in range(100):
+                    indices = np.arange(len(Xs[j]))
+                    np.random.shuffle(indices)
+                    grad = grad_fn(Xs[j][0:1000], Ys[j][0:1000])
+                    task_grad_samples[j].append(grad)
+
             for j in range(100):
                 allX = np.concatenate(Xs)
                 allY = np.concatenate(Ys)
@@ -226,9 +247,27 @@ if __name__ == '__main__':
 
         split_counts = []
         weight_variances = []
+        weight_means = []
+
+        task_grad_stds = []
+        task_grad_means = []
+        for i in range(len(task_grads)):
+            task_grad_stds.append([])
+            task_grad_means.append([])
+
         for i in range(len(task_grads[0][0])):
             split_counts.append(np.zeros(task_grads[0][0][i].shape))
             weight_variances.append(np.zeros(task_grads[0][0][i].shape))
+            weight_means.append(np.zeros(task_grads[0][0][i].shape))
+
+        for i in range(len(task_grad_samples)):
+            for j in range(len(task_grad_samples[i][0])):
+                one_param = []
+                for k in range(len(task_grad_samples[i])):
+                    one_param.append(np.asarray(task_grad_samples[i][k][j]))
+                task_grad_means[i].append(np.mean(one_param, axis=0))
+                task_grad_stds[i].append(np.std(one_param, axis=0))
+
 
         for i in range(len(task_grads[0])):
             for k in range(len(task_grads[0][i])):
@@ -236,7 +275,11 @@ if __name__ == '__main__':
                 for region in range(len(task_grads)):
                     region_gradients.append(np.asarray(task_grads[region][i][k]))
                 region_gradients = np.array(region_gradients)
-                if not random_split:
+                if cross_task_kldivergence:
+                    for t1 in range(len(task_grad_means)):
+                        for t2 in range(t1+1, len(task_grad_means)):
+                            split_counts[k] += symKLDiv(task_grad_means[t1][k], task_grad_stds[t1][k]+1e-20,task_grad_means[t2][k], task_grad_stds[t2][k]+1e-20)
+                elif not random_split:
                     split_counts[k] += np.var(region_gradients, axis=0)# * np.abs(net_weights[i][k]) # + 100 * (len(task_grads[0][i])-k)
                 elif prioritized_split:
                     split_counts[k] += np.random.random(split_counts[k].shape) * (len(task_grads[0][i])-k)
@@ -247,6 +290,8 @@ if __name__ == '__main__':
                 for g in range(len(total_grads)):
                     one_grad.append(np.asarray(total_grads[g][k]))
                 weight_variances[k] += np.var(one_grad, axis=0)
+                weight_means[k] += np.mean(one_grad, axis=0)
+
 
         for j in range(len(split_counts)):
             plt.figure()
@@ -256,6 +301,27 @@ if __name__ == '__main__':
                 plt.colorbar()
             elif len(split_counts[j].shape) == 1:
                 plt.plot(split_counts[j])
+            plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/' + network.get_params()[j].name + '_task_variance.png')
+
+        for j in range(len(weight_variances)):
+            plt.figure()
+            plt.title(network.get_params()[j].name)
+            if len(weight_variances[j].shape) == 2:
+                plt.imshow(weight_variances[j])
+                plt.colorbar()
+            elif len(weight_variances[j].shape) == 1:
+                plt.plot(weight_variances[j])
+            plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/' + network.get_params()[j].name + '_variances.png')
+
+        for j in range(len(network.get_params())):
+            plt.figure()
+            plt.title(network.get_params()[j].name)
+            if len(network.get_params()[j].get_value().shape) == 2:
+                plt.imshow(network.get_params()[j].get_value())
+                plt.colorbar()
+            elif len(network.get_params()[j].get_value().shape) == 1:
+                plt.plot(network.get_params()[j].get_value())
+
             plt.savefig('data/trained/gradient_temp/supervised_split_' + append + '/' + network.get_params()[j].name + '.png')
 
         for j in range(len(weight_variances)):
@@ -286,6 +352,40 @@ if __name__ == '__main__':
                 break
 
         split_metrics.sort(key=lambda x: x[2], reverse=True)'''
+
+        '''max_var = np.max(variance_list)
+
+        # test the usage of the various weights
+        testXs, testYs = synthesize_data(dim, 10000, tasks, False)
+        print('param size: ', len(split_metrics))
+        print('original error: ', test(out, np.concatenate(testXs), np.concatenate(testYs)))
+        original_param = np.copy(network.get_param_values())
+
+        split_metrics.sort(key=lambda x: x[3], reverse=False)
+
+        sorted_weight = np.sort(np.abs(network.get_param_values()))
+        print(len(sorted_weight), len(split_metrics))
+        for i in range(10):
+            thres1 = split_metrics[int((i*0.1)*len(split_metrics))][3]
+            thres2 = split_metrics[int(((i+1)*0.1)*len(split_metrics))-1][3]
+
+            #thres1 = sorted_weight[int((i*0.1)*len(sorted_weight))]
+            #thres2 = sorted_weight[int(((i+1) * 0.1) * len(sorted_weight))-1]
+            num = 0
+            for lid, pm in enumerate(network.get_params()):
+                val = pm.get_value()
+                for index, value in np.ndenumerate(val):
+                    #if np.abs(val)[index] < thres2 and np.abs(val[index]) >= thres1:
+                    if weight_variances[lid][index] >= thres1 and weight_variances[lid][index] < thres2:
+                        val[index] += np.random.normal(0, np.sqrt(max_var))
+                        num += 1
+                pm.set_value(val)
+            print('error mask: ',i , test(out, np.concatenate(testXs), np.concatenate(testYs)), num)
+            network.set_param_values(original_param)
+
+        #print('param diff', np.linalg.norm(original_param-network.get_param_values()))
+
+        abc'''
 
 
         print('Metric statistics (min/max/mean/std): ', np.min(metrics_list), np.max(metrics_list), np.mean(metrics_list), np.std(metrics_list))
