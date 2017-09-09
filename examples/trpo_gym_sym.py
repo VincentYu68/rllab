@@ -24,7 +24,7 @@ def run_task(*_):
 
         net_mode=0,
     )
-    policy = joblib.load('data/local/experiment/walker3d_newlimit_2dtranslation_symmetry05_sd1/policy.pkl')
+    #policy = joblib.load('data/local/experiment/walker3d_2dtranslation_newlimit_symmetry_05_sd7_2alivebonus/policy.pkl')
 
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
@@ -39,7 +39,7 @@ def run_task(*_):
         batch_size=50000,
 
         max_path_length=env.horizon,
-        n_itr=500,
+        n_itr=1000,
 
         discount=0.99,
         step_size=0.02,
@@ -58,11 +58,12 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=4,
+    n_parallel=7,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
+
     seed=3,
     exp_name='walker3d_newlimit_symmetry05_sd1_finetune_from2dtranslation',
 
