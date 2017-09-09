@@ -3,7 +3,7 @@ __author__ = 'yuwenhao'
 from  rllab.uposi.policy_split_rl_evaluation import *
 
 if __name__ == '__main__':
-    num_parallel = 14
+    num_parallel = 8
 
     hidden_size = (64, 32)
     batch_size = 40000
@@ -13,10 +13,19 @@ if __name__ == '__main__':
     prioritized_split = False
     adaptive_sample = False
 
+    use_param_variance = 1
+    reverse_metric = True
+
     initialize_epochs = 95
     grad_epochs = 5
-    test_epochs = 400
-    append = 'reacher_3modelsexp1_gradvariance2_alivepenalty_tasksplit_taskinput_6432net_sd1_vanbaseline_splitstd_accumgrad_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    test_epochs = 100
+    append = 'reacher_3modelsexp1_alivepenalty_tasksplit_taskinput_6432net_sd1_vanbaseline_splitstd_accumgrad_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+
+
+    if use_param_variance == 1:
+        append += '_param_variance'
+    if reverse_metric:
+        append += '_reverse_metric'
 
     env_name = "DartReacher3d-v1"
     task_size = 3
@@ -26,8 +35,8 @@ if __name__ == '__main__':
         if prioritized_split:
             append += '_prio'
 
-    load_init_policy = False
-    load_split_data = False
+    load_init_policy = True
+    load_split_data = True
 
     alternate_update = False
     accumulate_gradient = True
@@ -40,7 +49,7 @@ if __name__ == '__main__':
     if accumulate_gradient:
         append += '_accumulate_gradient'
 
-    split_percentages = [0.15, 0.3]
+    split_percentages = [0.5]
 
     perform_evaluation(num_parallel, hidden_size,
                        batch_size,
@@ -62,5 +71,7 @@ if __name__ == '__main__':
                        split_percentages,
                        env_name,
                        seed=1,
-                       test_num=3,
-                       use_param_variance=1)
+                       test_num=1,
+                       use_param_variance=use_param_variance,
+                       param_variance_batch=1000,
+                       reverse_metric=reverse_metric)
