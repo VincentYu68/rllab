@@ -115,7 +115,8 @@ def perform_evaluation(num_parallel,
                        param_update_end = 200,
                        use_param_variance = 0,
                        param_variance_batch = 10000,
-                       param_variance_sample = 100):
+                       param_variance_sample = 100,
+                       reverse_metric = False):
     reps = 1
 
     learning_curves = []
@@ -284,11 +285,8 @@ def perform_evaluation(num_parallel,
                     samples_data["rewards"] = samples_data_ori["rewards"][indices[0:param_variance_batch]]
                     samples_data["advantages"] = samples_data_ori["advantages"][indices[0:param_variance_batch]]
                     samples_data["agent_infos"] = {}
-                    samples_data["agent_infos"]["log_std"] = samples_data_ori["agent_infos"]["log_std"][
-                        indices[0:param_variance_batch]]
-                    samples_data["agent_infos"]["mean"] = samples_data_ori["agent_infos"]["mean"][
-                        indices[0:param_variance_batch]]
-
+                    samples_data["agent_infos"]["log_std"] = samples_data_ori["agent_infos"]["log_std"][indices[0:param_variance_batch]]
+                    samples_data["agent_infos"]["mean"] = samples_data_ori["agent_infos"]["mean"][indices[0:param_variance_batch]]
                     grad = get_gradient(algo, samples_data, False)
                     variance_grads.append(grad)
             algo.sampler.process_samples(0, split_data[i])
@@ -357,9 +355,9 @@ def perform_evaluation(num_parallel,
                 metrics_list.append(value)
                 variance_list.append(weight_variances[k][index])
         if use_param_variance == 0:
-            split_metrics.sort(key=lambda x: x[2], reverse=False)
+            split_metrics.sort(key=lambda x: x[2], reverse=reverse_metric)
         else:
-            split_metrics.sort(key=lambda x: x[3], reverse=False)
+            split_metrics.sort(key=lambda x: x[3], reverse=reverse_metric)
 
         # test the effect of splitting
         total_param_size = len(policy._mean_network.get_param_values())

@@ -62,4 +62,6 @@ if __name__ == '__main__':
                        split_percentages,
                        env_name,
                        seed=0,
-                       test_num=3)
+                       test_num=3,
+                       use_param_variance=1,
+                       reverse_metric=True)
