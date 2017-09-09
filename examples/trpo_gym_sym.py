@@ -24,7 +24,7 @@ def run_task(*_):
 
         net_mode=0,
     )
-    #policy = joblib.load('data/local/experiment/walker3d_sym_2d/policy.pkl')
+    policy = joblib.load('data/local/experiment/walker3d_newlimit_2dtranslation_symmetry05_sd1/policy.pkl')
 
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
@@ -64,7 +64,7 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=3,
-    exp_name='walker3d_2dtranslation_newwaistlimit_symmetry05_sd3',
+    exp_name='walker3d_newlimit_symmetry05_sd1_finetune_from2dtranslation',
 
     # plot=True,
 )
