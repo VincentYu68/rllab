@@ -24,7 +24,7 @@ def run_task(*_):
 
         net_mode=0,
     )
-    policy = joblib.load('data/local/experiment/walker3d_2d_newlimit_symmetry_05_sd7/policy.pkl')
+    #policy = joblib.load('data/local/experiment/walker3d_2dtrans_exp2_symmetry_05_sd6_2alivebonus/policy.pkl')
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
     baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
@@ -61,13 +61,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=2,
+    n_parallel=7,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=7,
-    exp_name='walker3d_2d_newlimit_symmetry_05_sd7_2alivebonus',
+    seed=5,
+    exp_name='walker3d_exp3_nojointpenalty_2dtranslation_symmetry_05_sd5_2alivebonus',
 
     # plot=True,
 )
