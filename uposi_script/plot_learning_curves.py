@@ -32,6 +32,8 @@ if __name__ == '__main__':
         ['pretrain_0.0.pkl', 'learning_curve_0.0.pkl', 0, 399, '100% shared'],
         ['pretrain_0.5.pkl', 'learning_curve_0.5.pkl', 0, 300, '50% shared'],
         ['pretrain_0.0.pkl', 'learning_curve_0.0.pkl', 1, 399, '0% shared'],
+        ['pretrain_variance.pkl', 'learning_curve_variance.pkl', 1, 399, '50% shared v'],
+        #['pretrain_variance.pkl', 'learning_curve_variance.pkl', 0, 399, '100% shared v'],
     ]
 
     x_range = np.arange(0, 400, 1)
