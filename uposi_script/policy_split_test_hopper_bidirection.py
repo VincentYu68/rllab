@@ -3,21 +3,24 @@ __author__ = 'yuwenhao'
 from  rllab.uposi.policy_split_rl_evaluation import *
 
 if __name__ == '__main__':
-    num_parallel = 7
+    num_parallel = 15
 
     hidden_size = (64, 32)
-    batch_size = 20000
+    batch_size = 25000
     pathlength = 1000
 
     random_split = False
     prioritized_split = False
     adaptive_sample = False
 
+    use_param_variance = 1
+    reverse_metric = True
+
     initialize_epochs = 90
     grad_epochs = 10
-    test_epochs = 300
-    seed=2
-    append = 'hopper_friction_6432net_sd%d_splitstd_accumgrad_specbaseline_%dk_%d_%d_unweighted'%(seed,batch_size/1000, initialize_epochs, grad_epochs)
+    test_epochs = 200
+    seed=0
+    append = 'hopper_2styles3_fricrest_6432net_sd%d_splitstd_maskedgrad_specbaseline_%dk_%d_%d_unweighted'%(seed,batch_size/1000, initialize_epochs, grad_epochs)
 
     env_name = "DartHopper-v1"
     task_size = 2
@@ -28,6 +31,11 @@ if __name__ == '__main__':
             append += '_prio'
     if adaptive_sample:
         append += '_adaptive_sample'
+
+    if use_param_variance == 1:
+        append += '_param_variance'
+    if reverse_metric:
+        append += '_reverse_metric'
 
     load_init_policy = False
     load_split_data = False
@@ -43,7 +51,7 @@ if __name__ == '__main__':
     if accumulate_gradient:
         append += '_accumulate_gradient'
 
-    split_percentages = [0.0, 0.5]
+    split_percentages = [0.5]
 
     perform_evaluation(num_parallel, hidden_size,
                        batch_size,
@@ -66,4 +74,7 @@ if __name__ == '__main__':
                        env_name,
                        seed=seed,
                        test_num=3,
-                       use_param_variance=0)
+                       use_param_variance=use_param_variance,
+                       param_variance_batch=10000,
+                       reverse_metric=reverse_metric
+                       )

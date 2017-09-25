@@ -61,6 +61,7 @@ def get_gradient(algo, samples_data, trpo_split=False):
     return grad
 
 
+
 def get_samples(algo, task_size, adaptive_sample=False, imbalance_sample=False, batch_size = 0, sample_ratio=[]):
     if adaptive_sample:
         paths = []
@@ -114,7 +115,8 @@ def perform_evaluation(num_parallel,
                        param_update_end = 200,
                        use_param_variance = 0,
                        param_variance_batch = 10000,
-                       param_variance_sample = 100):
+                       param_variance_sample = 100,
+                       reverse_metric = False):
     reps = 1
 
     learning_curves = []
@@ -192,7 +194,7 @@ def perform_evaluation(num_parallel,
                     reward_paths = []
                     for t in range(task_size):
                         paths += algo.sampler.obtain_samples(0, t)
-                        reward_paths += algo.sampler.obtain_samples(0)
+                        #reward_paths += algo.sampler.obtain_samples(0)
                 elif imbalance_sample:
                     paths = []
                     reward_paths = []
@@ -233,7 +235,7 @@ def perform_evaluation(num_parallel,
                     reward_paths = []
                     for t in range(task_size):
                         paths += algo.sampler.obtain_samples(0, t)
-                        reward_paths += algo.sampler.obtain_samples(0)
+                        #reward_paths += algo.sampler.obtain_samples(0)
                 elif imbalance_sample:
                     paths = []
                     reward_paths = []
@@ -686,6 +688,7 @@ def perform_evaluation(num_parallel,
                     if len(kl_divergences[i]) > 0:
                         avg_kl_div.append(np.mean(kl_divergences[i], axis=0))
                 #print(avg_kl_div)
+                joblib.dump(avg_kl_div, diretory + '/kl_divs.pkl', compress=True)
                 for i in range(len(avg_kl_div)):
                     one_perc_kl_div = np.array(avg_kl_div[i])
                     #print(i, one_perc_kl_div)
@@ -704,6 +707,7 @@ def perform_evaluation(num_parallel,
     plt.figure()
     plt.plot(split_percentages, np.mean(performances, axis=0))
     plt.savefig(diretory + '/split_performance.png')
+    joblib.dump(learning_curves, diretory + '/learning_curve.pkl', compress=True)
 
     avg_learning_curve = []
     for i in range(len(learning_curves)):
@@ -714,12 +718,13 @@ def perform_evaluation(num_parallel,
     plt.legend(bbox_to_anchor=(0.3, 0.3),
                bbox_transform=plt.gcf().transFigure, numpoints=1)
     plt.savefig(diretory + '/split_learning_curves.png')
-    np.savetxt(diretory + '/learning_curves.txt', avg_learning_curve)
+    #np.savetxt(diretory + '/learning_curves.txt', avg_learning_curve)
 
     if len(kl_divergences[0]) > 0:
         avg_kl_div = []
         for i in range(len(kl_divergences)):
             avg_kl_div.append(np.mean(kl_divergences[i], axis=0))
+        joblib.dump(avg_kl_div, diretory + '/kl_divs.pkl', compress=True)
         for i in range(len(avg_kl_div)):
             one_perc_kl_div = np.array(avg_kl_div[i])
             plt.figure()

@@ -3,32 +3,23 @@ __author__ = 'yuwenhao'
 from  rllab.uposi.policy_split_rl_evaluation import *
 
 if __name__ == '__main__':
-    num_parallel = 15
+    num_parallel = 7
 
     hidden_size = (64, 32)
-    batch_size = 30000
-    pathlength = 1000
+    batch_size = 40000
+    pathlength = 500
 
     random_split = False
     prioritized_split = False
     adaptive_sample = False
 
-    use_param_variance = 0
-    reverse_metric = True
-
-    initialize_epochs = 180
-    grad_epochs = 20
+    initialize_epochs = 90
+    grad_epochs = 10
     test_epochs = 300
-    seed=2
-    append = 'hopper_restitution_taskinput_6464net_sd%d_splitstd_maskedgrad_specbaseline_%dk_%d_%d_unweighted'%(seed,batch_size/1000, initialize_epochs, grad_epochs)
+    append = 'walker2d_3models_6432net_sd0_specbaseline_sharestd_accumgrad_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
-    if use_param_variance == 1:
-        append += '_param_variance'
-    if reverse_metric:
-        append += '_reverse_metric'
-
-    env_name = "DartHopper-v1"
-    task_size = 2
+    env_name = "DartWalker2d-v1"
+    task_size = 3
 
     if random_split:
         append += '_rand'
@@ -70,8 +61,7 @@ if __name__ == '__main__':
                        sample_ratio,
                        split_percentages,
                        env_name,
-                       seed=seed,
-                       test_num=2,
-                       use_param_variance=use_param_variance,
-                       param_variance_batch=1000,
-                       reverse_metric=reverse_metric)
+                       seed=0,
+                       test_num=3,
+                       use_param_variance=1,
+                       reverse_metric=True)
