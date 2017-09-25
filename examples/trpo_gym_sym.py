@@ -64,8 +64,8 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
 
-    seed=5,
-    exp_name='walker3d_exp3_nojointpenalty_2dtranslation_symmetry_05_sd5_2alivebonus',
+    seed=3,
+    exp_name='walker3d_newlimit_symmetry05_sd1_finetune_from2dtranslation',
 
     # plot=True,
 )
