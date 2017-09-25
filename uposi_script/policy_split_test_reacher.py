@@ -6,20 +6,20 @@ if __name__ == '__main__':
     num_parallel = 8
 
     hidden_size = (64, 32)
-    batch_size = 40000
+    batch_size = 30000
     pathlength = 500
 
     random_split = False
     prioritized_split = False
     adaptive_sample = False
 
-    use_param_variance = 1
+    use_param_variance = 0
     reverse_metric = True
 
-    initialize_epochs = 95
-    grad_epochs = 5
-    test_epochs = 100
-    append = 'reacher_3modelsexp1_alivepenalty_tasksplit_taskinput_6432net_sd1_vanbaseline_splitstd_accumgrad_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
+    initialize_epochs = 40
+    grad_epochs = 10
+    test_epochs = 300
+    append = 'reacher_3models_exp5_swappedjoints_alivepenalty_kltest_tasksplit_taskinput_6432net_sd1_vanbaseline_splitstd_accumgrad_%dk_%d_%d_unweighted'%(batch_size/1000, initialize_epochs, grad_epochs)
 
 
     if use_param_variance == 1:
@@ -35,14 +35,14 @@ if __name__ == '__main__':
         if prioritized_split:
             append += '_prio'
 
-    load_init_policy = True
-    load_split_data = True
+    load_init_policy = False
+    load_split_data = False
 
     alternate_update = False
     accumulate_gradient = True
 
     imbalance_sample = False
-    sample_ratio = [0.1, 0.9]
+    sample_ratio = [1.0]
 
     if alternate_update:
         append += '_alternate_update'
@@ -71,7 +71,7 @@ if __name__ == '__main__':
                        split_percentages,
                        env_name,
                        seed=1,
-                       test_num=1,
+                       test_num=3,
                        use_param_variance=use_param_variance,
-                       param_variance_batch=1000,
+                       param_variance_batch=10000,
                        reverse_metric=reverse_metric)

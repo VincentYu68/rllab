@@ -3,7 +3,7 @@ __author__ = 'yuwenhao'
 from  rllab.uposi.policy_split_rl_evaluation import *
 
 if __name__ == '__main__':
-    num_parallel = 7
+    num_parallel = 15
 
     hidden_size = (64, 64)
     batch_size = 25000
@@ -13,14 +13,22 @@ if __name__ == '__main__':
     prioritized_split = False
     adaptive_sample = False
 
-    initialize_epochs = 70
-    grad_epochs = 30
+    use_param_variance = 0
+    reverse_metric = True
+
+    initialize_epochs = 180
+    grad_epochs = 20
     test_epochs = 300
-    seed=1
-    append = 'hopper_torsotest3segmentuneven_taskinput_6464net_sd%d_splitstd_maskedgrad_specbaseline_%dk_%d_%d_unweighted'%(seed,batch_size/1000, initialize_epochs, grad_epochs)
+    seed=2
+    append = 'hopper_restitution_taskinput_6464net_sd%d_splitstd_maskedgrad_specbaseline_%dk_%d_%d_unweighted'%(seed,batch_size/1000, initialize_epochs, grad_epochs)
+
+    if use_param_variance == 1:
+        append += '_param_variance'
+    if reverse_metric:
+        append += '_reverse_metric'
 
     env_name = "DartHopper-v1"
-    task_size = 3
+    task_size = 2
 
     if random_split:
         append += '_rand'
@@ -41,7 +49,7 @@ if __name__ == '__main__':
     if accumulate_gradient:
         append += '_accumulate_gradient'
 
-    split_percentages = [0.0, 0.1, 0.9]
+    split_percentages = [0.0, 0.5]
 
     perform_evaluation(num_parallel, hidden_size,
                        batch_size,
@@ -63,7 +71,7 @@ if __name__ == '__main__':
                        split_percentages,
                        env_name,
                        seed=seed,
-                       test_num=3,
-                       param_update_start = 49,
-                       param_update_frequency = 10,
-                       param_update_end = 201)
+                       test_num=2,
+                       use_param_variance=use_param_variance,
+                       param_variance_batch=1000,
+                       reverse_metric=reverse_metric)
