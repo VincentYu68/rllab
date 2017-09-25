@@ -13,11 +13,11 @@ if __name__ == '__main__':
     prioritized_split = False
     adaptive_sample = False
 
-    initialize_epochs = 90
-    grad_epochs = 10
-    test_epochs = 300
-    seed=2
-    append = 'hopper_friction_6432net_sd%d_splitstd_accumgrad_specbaseline_%dk_%d_%d_unweighted'%(seed,batch_size/1000, initialize_epochs, grad_epochs)
+    initialize_epochs = 95
+    grad_epochs = 5
+    test_epochs = 200
+    seed=0
+    append = 'hopper_styles_taskinput_retest2_6432net_sd%d_splitstd_accumgrad_vanbaseline_%dk_%d_%d_unweighted'%(seed,batch_size/1000, initialize_epochs, grad_epochs)
 
     env_name = "DartHopper-v1"
     task_size = 2
@@ -26,8 +26,6 @@ if __name__ == '__main__':
         append += '_rand'
         if prioritized_split:
             append += '_prio'
-    if adaptive_sample:
-        append += '_adaptive_sample'
 
     load_init_policy = False
     load_split_data = False
@@ -65,5 +63,6 @@ if __name__ == '__main__':
                        split_percentages,
                        env_name,
                        seed=seed,
-                       test_num=3,
-                       use_param_variance=0)
+                       test_num=1,
+                       use_param_variance=0,
+                       )

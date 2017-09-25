@@ -24,7 +24,7 @@ def run_task(*_):
 
         net_mode=0,
     )
-    #policy = joblib.load('data/local/experiment/walker3d_2dtranslation_newlimit_symmetry_05_sd7_2alivebonus/policy.pkl')
+    #policy = joblib.load('data/local/experiment/walker3d_exp3_normaljointpenalty_2dtranslation_symmetry_06_sd5_2alivebonus_newenergypenalty/policy.pkl')
 
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
@@ -39,7 +39,7 @@ def run_task(*_):
         batch_size=50000,
 
         max_path_length=env.horizon,
-        n_itr=1000,
+        n_itr=300,
 
         discount=0.99,
         step_size=0.02,
@@ -58,14 +58,14 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=7,
+    n_parallel=8,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
 
-    seed=5,
-    exp_name='walker3d_exp3_nojointpenalty_2dtranslation_symmetry_05_sd5_2alivebonus',
+    seed=2,
+    exp_name='walker3d_exp3_nojointpenalty_symmetry_05_sd2_2alivebonus_2velrew_targetvelocity08_initpush_hardvelenforce_2en2_10frameskip_oldenergypenalty_2dtranslation',
 
     # plot=True,
 )

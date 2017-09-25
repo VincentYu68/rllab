@@ -27,24 +27,31 @@ import matplotlib.pyplot as plt
 import os
 
 if __name__ == '__main__':
-    prefix = 'data/icra2018/reacher_3models/'
+    prefix = '/home/vincentyu/Research/ICRA2018/hopper_3models/'
     learning_curve_profiles = [
-        ['pretrain_0.0.pkl', 'learning_curve_0.0.pkl', 0, 399, '100% shared'],
-        ['pretrain_0.5.pkl', 'learning_curve_0.5.pkl', 0, 300, '50% shared'],
-        ['pretrain_0.0.pkl', 'learning_curve_0.0.pkl', 1, 399, '0% shared'],
-        ['pretrain_variance.pkl', 'learning_curve_variance.pkl', 1, 399, '50% shared v'],
-        #['pretrain_variance.pkl', 'learning_curve_variance.pkl', 0, 399, '100% shared v'],
+        ['pretrain_learningcurve_0.5tg.pkl', 'learning_curve_0.5_new.pkl', 0, 200, '50% shared'],
+        ['pretrain_learningcurve_0.5tg.pkl', 'learning_curve_0.5_rand.pkl', 0, 200, '50% randomly shared'],
+        ['pretrain_learningcurve_0.5tg.pkl', 'learning_curve_0.5.pkl', 0, 299, '100% shared'],
+        ['pretrain_learningcurve_1.0.pkl', 'learning_curve_1.0.pkl', 0, 299, '0% shared'],
     ]
 
-    x_range = np.arange(0, 400, 1)
+    x_range = np.arange(0, 300, 1)
     learning_curve_data = []
     for profile in learning_curve_profiles:
-        pretraining_data = [float(i) for i in joblib.load(prefix+profile[0])]
+        if os.path.exists(prefix+profile[0]):
+            pretraining_data = [float(i) for i in joblib.load(prefix+profile[0])]
+        else:
+            pretraining_data = []
+            for it in range(10):
+                if os.path.exists(prefix+profile[0].replace('.pkl', '_'+str(it)+'.pkl')):
+                    one_pt_data = [float(i) for i in joblib.load(prefix+profile[0].replace('.pkl', '_'+str(it)+'.pkl'))]
+                    pretraining_data.append(one_pt_data)
+            pretraining_data = np.mean(pretraining_data, axis=0)
 
         learning_curve = joblib.load(prefix + profile[1])
         finetune_data = np.mean(learning_curve[profile[2]], axis=0)[0:profile[3]]
 
-        learning_curve_data.append(np.concatenate([pretraining_data, finetune_data])[-400:])
+        learning_curve_data.append(np.concatenate([pretraining_data, finetune_data]))
 
 
     fig = plt.figure()

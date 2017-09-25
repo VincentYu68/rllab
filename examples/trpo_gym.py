@@ -14,18 +14,18 @@ import numpy as np
 import random
 
 def run_task(*_):
-    env = normalize(GymEnv("DartReacher3d-v1", record_log=False, record_video=False))
+    env = normalize(GymEnv("DartWalker2d-v1", record_log=False, record_video=False))
 
     mp_dim = 1
-    policy_pre = joblib.load('data/trained/gradient_temp/rl_split_hopper_3models_taskinput_6432net_sd4_splitstd_maskedgrad_specbaseline_40k_70_30_unweighted_accumulate_gradient/final_policy_0.1.pkl')
+    #policy_pre = joblib.load('data/trained/gradient_temp/rl_split_hopper_3models_taskinput_6432net_sd4_splitstd_maskedgrad_specbaseline_40k_70_30_unweighted_accumulate_gradient/final_policy_0.1.pkl')
     split_dim = 0
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
         hidden_sizes=(64,32),
 
-        net_mode=9,
-        split_init_net=policy_pre,
+        net_mode=0,
+        #split_init_net=policy_pre,
         task_id=1, # use ellipsoid net
     )
 
@@ -41,10 +41,10 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=7500,
+        batch_size=25000,
 
         max_path_length=env.horizon,
-        n_itr=400,
+        n_itr=500,
 
         discount=0.995,
         step_size=0.01,
@@ -62,13 +62,13 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=5,
+    n_parallel=8,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=3,
-    exp_name='hopper_box_test',
+    exp_name='walker2d_back',
 
     # plot=True,
 )

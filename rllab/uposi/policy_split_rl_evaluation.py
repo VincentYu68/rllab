@@ -67,7 +67,7 @@ def get_samples(algo, task_size, adaptive_sample=False, imbalance_sample=False, 
         reward_paths = []
         for t in range(task_size):
             paths += algo.sampler.obtain_samples(0, t)
-            reward_paths += algo.sampler.obtain_samples(0)
+            #reward_paths += algo.sampler.obtain_samples(0)
     elif imbalance_sample:
         paths = []
         reward_paths = []
@@ -156,11 +156,16 @@ def perform_evaluation(num_parallel,
         if load_init_policy:
             policy = joblib.load(diretory + '/init_policy.pkl')
 
+        if adaptive_sample:
+            new_batch_size = int(batch_size / task_size)
+        else:
+            new_batch_size = batch_size
+
         algo = TRPO(  # _MultiTask(
             env=env,
             policy=policy,
             baseline=baseline,
-            batch_size=batch_size,
+            batch_size=new_batch_size,
             max_path_length=pathlength,
             n_itr=5,
 
@@ -248,12 +253,12 @@ def perform_evaluation(num_parallel,
             joblib.dump(split_data, diretory + '/split_data.pkl', compress=True)
             joblib.dump(net_weights, diretory + '/net_weights.pkl', compress=True)
             joblib.dump(net_weight_values, diretory + '/net_weight_values.pkl', compress=True)
-            joblib.dump(pre_training_learning_curve, diretory + '/pretrain_learningcurve.pkl', compress=True)
+            joblib.dump(pre_training_learning_curve, diretory + '/pretrain_learningcurve_'+str(testit)+'.pkl', compress=True)
         else:
             split_data = joblib.load(diretory + '/split_data.pkl')
             net_weights = joblib.load(diretory + '/net_weights.pkl')
             net_weight_values = joblib.load(diretory + '/net_weight_values.pkl')
-            pre_training_learning_curve = joblib.load(diretory + '/pretrain_learningcurve.pkl')
+            pre_training_learning_curve = joblib.load(diretory + '/pretrain_learningcurve_'+str(testit)+'.pkl')
 
         task_grads = []
         variance_grads = []
@@ -282,8 +287,10 @@ def perform_evaluation(num_parallel,
                     samples_data["actions"] = samples_data_ori["actions"][indices[0:param_variance_batch]]
                     samples_data["rewards"] = samples_data_ori["rewards"][indices[0:param_variance_batch]]
                     samples_data["advantages"] = samples_data_ori["advantages"][indices[0:param_variance_batch]]
-                    samples_data["env_infos"] = samples_data_ori["env_infos"][indices[0:param_variance_batch]]
-                    samples_data["agent_infos"] = samples_data_ori["agent_infos"][indices[0:param_variance_batch]]
+                    samples_data["agent_infos"] = {}
+                    samples_data["agent_infos"]["log_std"] = samples_data_ori["agent_infos"]["log_std"][indices[0:param_variance_batch]]
+                    samples_data["agent_infos"]["mean"] = samples_data_ori["agent_infos"]["mean"][
+                        indices[0:param_variance_batch]]
                     grad = get_gradient(algo, samples_data, False)
                     variance_grads.append(grad)
             algo.sampler.process_samples(0, split_data[i])
@@ -352,9 +359,9 @@ def perform_evaluation(num_parallel,
                 metrics_list.append(value)
                 variance_list.append(weight_variances[k][index])
         if use_param_variance == 0:
-            split_metrics.sort(key=lambda x: x[2], reverse=False)
+            split_metrics.sort(key=lambda x: x[2], reverse=True)
         else:
-            split_metrics.sort(key=lambda x: x[3], reverse=False)
+            split_metrics.sort(key=lambda x: x[3], reverse=True)
 
         # test the effect of splitting
         total_param_size = len(policy._mean_network.get_param_values())
@@ -427,7 +434,7 @@ def perform_evaluation(num_parallel,
             if split_param_size == 0:
                 baseline_add = 0
             else:
-                baseline_add = task_size*0  # use 0 for now, though task_size should in theory improve performance more
+                baseline_add = task_size  # use 0 for now, though task_size should in theory improve performance more
             split_baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=baseline_add)
 
             new_batch_size = batch_size
@@ -479,7 +486,7 @@ def perform_evaluation(num_parallel,
                         samples_data = split_algo.sampler.process_samples(0, paths)
                         opt_data = split_algo.optimize_policy(0, samples_data)
 
-                        if adaptive_sample or imbalance_sample:
+                        if imbalance_sample:
                             reward = 0
                             for path in reward_paths:
                                 reward += np.sum(path["rewards"])
@@ -530,7 +537,7 @@ def perform_evaluation(num_parallel,
                             # split_algo.sampler.process_samples(0, task_paths[j])
                             samples_data = split_algo.sampler.process_samples(0, task_paths[j], False)
                             processed_task_data.append(samples_data)
-                            split_algo.optimize_policy(0, samples_data)
+                            #split_algo.optimize_policy(0, samples_data)
 
                             # if j == 1:
                             accum_grad += split_policy.get_param_values() - pre_opt_parameter
@@ -543,7 +550,7 @@ def perform_evaluation(num_parallel,
                         # compute the gradient together
                         split_policy.set_param_values(pre_opt_parameter)
                         all_data = split_algo.sampler.process_samples(0, paths)
-                        if adaptive_sample or imbalance_sample:
+                        if imbalance_sample:
                             reward = 0
                             for path in reward_paths:
                                 reward += np.sum(path["rewards"])
@@ -551,17 +558,17 @@ def perform_evaluation(num_parallel,
                         else:
                             reward = float((dict(logger._tabular)['AverageReturn']))
 
-                        #split_algo.optimize_policy(0, all_data)
-                        #all_data_grad = split_policy.get_param_values() - pre_opt_parameter
+                        split_algo.optimize_policy(0, all_data)
+                        all_data_grad = split_policy.get_param_values() - pre_opt_parameter
 
                         # do a line search to project the udpate onto the constraint manifold
-                        sum_grad = accum_grad# * mask_split_flat + all_data_grad * mask_share_flat
+                        sum_grad = all_data_grad# * mask_split_flat + all_data_grad * mask_share_flat
 
                         ls_steps = []
                         loss_before = split_algo.loss(all_data)
 
-                        for s in range(40):
-                            ls_steps.append(0.95 ** s)
+                        for s in range(50):
+                            ls_steps.append(0.97 ** s)
                         for step in ls_steps:
                             split_policy.set_param_values(pre_opt_parameter + sum_grad * step)
                             if split_algo.mean_kl(all_data)[0] < split_algo.step_size:  # and split_algo.loss(all_data)[0] < loss_before[0]:

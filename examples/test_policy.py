@@ -23,21 +23,21 @@ if __name__ == '__main__':
 
     if hasattr(env.env, 'disableViewer'):
         env.env.disableViewer = False
-    if hasattr(env.env, 'resample_MP'):
-        env.env.resample_MP = False
+        '''if hasattr(env.env, 'resample_MP'):
+        env.env.resample_MP = False'''
 
-    env_wrapper = wrappers.Monitor(env, 'data/videos/', force=True)
-    #env_wrapper = env
+    #env_wrapper = wrappers.Monitor(env, 'data/videos/', force=True)
+    env_wrapper = env
 
-    dyn_models = joblib.load('data/trained/dyn_models.pkl')
-    env.env.dyn_models = dyn_models
-    env.env.dyn_model_id = 0
+    #dyn_models = joblib.load('data/trained/dyn_models.pkl')
+    #env.env.dyn_models = dyn_models
+    #env.env.dyn_model_id = 0
 
-    if hasattr(env.env, 'param_manager'):
+    '''if hasattr(env.env, 'param_manager'):
         #env.env.param_manager.resample_parameters()
         #env.env.param_manager.set_simulator_parameters([0.7, 0.45])
         #env.env.resample_MP = True
-        print('Model Parameters: ', env.env.param_manager.get_simulator_parameters())
+        print('Model Parameters: ', env.env.param_manager.get_simulator_parameters())'''
 
 
     policy = None
@@ -48,19 +48,26 @@ if __name__ == '__main__':
 
     rew = 0
 
-    traj = 10
+    actions = []
+
+    traj = 1
     ct = 0
+    action_pen = []
     while ct < traj:
         if policy is not None:
             a, ainfo = policy.get_action(o)
-            act = a#ainfo['mean']
+            act = ainfo['mean']
         else:
             act = env.action_space.sample()
+        actions.append(act)
         if hasattr(policy, '_lowlevelnetwork'):
             lowa = policy.lowlevel_action(o, act)
             o, r, d, env_info = env_wrapper.step(lowa)
         else:
             o, r, d, env_info = env_wrapper.step(act)
+
+        if 'action_pen' in env_info:
+            action_pen.append(env_info['action_pen'])
 
         rew += r
 
@@ -79,3 +86,12 @@ if __name__ == '__main__':
     #plt.plot(thigh_torque_1)
     #plt.plot(thigh_torque_2)
     #plt.show()
+    if len(actions[0]) < 20:
+        rendergroup = [[0,1,2], [3,4,5, 9,10,11], [6,12], [7,8, 12,13]]
+        for rg in rendergroup:
+            plt.figure()
+            for i in rg:
+                plt.plot(np.array(actions)[:, i])
+        plt.figure()
+        plt.plot(action_pen)
+        plt.show()
