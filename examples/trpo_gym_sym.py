@@ -24,7 +24,7 @@ def run_task(*_):
 
         net_mode=0,
     )
-    #policy = joblib.load('data/local/experiment/walker3d_exp3_normaljointpenalty_2dtranslation_symmetry_06_sd5_2alivebonus_newenergypenalty/policy.pkl')
+    #policy = joblib.load('data/local/experiment/walker3d_exp3_nojointpenalty_symmetry_05_sd1_3alivebonus_2velrew_targetvelocity09_5en1_10frameskip_absenergypenalty_2dtranslation_adjusted_strength/policy.pkl')
 
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
@@ -39,14 +39,15 @@ def run_task(*_):
         batch_size=50000,
 
         max_path_length=env.horizon,
-        n_itr=300,
+        n_itr=600,
 
         discount=0.99,
         step_size=0.02,
         gae_lambda=0.97,
         observation_permutation=np.array([0.0001,-1, 2,-3,-4, -5,-6,7, 14,-15,-16, 17, 18,-19, 8,-9,-10, 11, 12,-13,\
                                           20,21,-22, 23,-24,-25, -26,-27,28, 35,-36,-37, 38, 39,-40, 29,-30,-31, 32, 33,-34]),
-        #action_permutation=np.array([-0.0001, -1,-5,-6,-7,-2,-3, -4]),
+        #observation_permutation=np.array([0.0001, 1, 5,6,7, 2,3,4, 8,9,10, 14,15,16, 11,12,13]),
+        #action_permutation=np.array([3,4,5, 0.00001,1,2]),
         action_permutation=np.array([-0.0001, -1, 2, 9, -10, -11, 12, 13, -14, 3, -4, -5, 6, 7, -8]),
 
         sym_loss_weight=0.5,
@@ -64,8 +65,8 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
 
-    seed=2,
-    exp_name='walker3d_exp3_nojointpenalty_symmetry_05_sd2_2alivebonus_2velrew_targetvelocity08_initpush_hardvelenforce_2en2_10frameskip_oldenergypenalty_2dtranslation',
+    seed=1,
+    exp_name='walker3d_exp3_nojointpenalty_symmetry_05_sd1_3alivebonus_2velrew_targetvelocity09_10frameskip_velenforce_37torso_5en1absenergypenalty_adjusted_strength',
 
     # plot=True,
 )

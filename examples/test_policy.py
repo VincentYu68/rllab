@@ -26,8 +26,13 @@ if __name__ == '__main__':
         '''if hasattr(env.env, 'resample_MP'):
         env.env.resample_MP = False'''
 
-    #env_wrapper = wrappers.Monitor(env, 'data/videos/', force=True)
-    env_wrapper = env
+    record = False
+    if len(sys.argv) > 3:
+        record = int(sys.argv[3]) == 1
+    if record:
+        env_wrapper = wrappers.Monitor(env, 'data/videos/', force=True)
+    else:
+        env_wrapper = env
 
     #dyn_models = joblib.load('data/trained/dyn_models.pkl')
     #env.env.dyn_models = dyn_models
@@ -56,7 +61,7 @@ if __name__ == '__main__':
     while ct < traj:
         if policy is not None:
             a, ainfo = policy.get_action(o)
-            act = ainfo['mean']
+            act = a#ainfo['mean']
         else:
             act = env.action_space.sample()
         actions.append(act)
@@ -86,7 +91,7 @@ if __name__ == '__main__':
     #plt.plot(thigh_torque_1)
     #plt.plot(thigh_torque_2)
     #plt.show()
-    if len(actions[0]) < 20:
+    if len(actions[0]) < 20 and len(actions[0]) > 12:
         rendergroup = [[0,1,2], [3,4,5, 9,10,11], [6,12], [7,8, 12,13]]
         for rg in rendergroup:
             plt.figure()
