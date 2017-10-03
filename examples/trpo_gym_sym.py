@@ -24,7 +24,7 @@ def run_task(*_):
 
         net_mode=0,
     )
-    #policy = joblib.load('data/local/experiment/walker3d_exp3_nojointpenalty_symmetry_05_sd1_3alivebonus_2velrew_targetvelocity09_5en1_10frameskip_absenergypenalty_2dtranslation_adjusted_strength/policy.pkl')
+    #policy = joblib.load('data/local/experiment/walker3d_symmetry05_sd1_3alivebonus_2velrew_targetvelocity09_15frameskip_smallfeet_5en1absenergypenalty_2dtrans/policy.pkl')
 
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
@@ -65,8 +65,8 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
 
-    seed=1,
-    exp_name='walker3d_exp3_nojointpenalty_symmetry_05_sd1_3alivebonus_2velrew_targetvelocity09_10frameskip_velenforce_37torso_5en1absenergypenalty_adjusted_strength',
+    seed=2,
+    exp_name='walker3d_symmetry05_sd2_2alivebonus_2velrew_targetvelocity09_15frameskip_smallfeet_5en1absenergypenalty_2dtrans_newfeet',
 
     # plot=True,
 )

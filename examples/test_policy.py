@@ -61,7 +61,7 @@ if __name__ == '__main__':
     while ct < traj:
         if policy is not None:
             a, ainfo = policy.get_action(o)
-            act = a#ainfo['mean']
+            act = ainfo['mean']
         else:
             act = env.action_space.sample()
         actions.append(act)
