@@ -1,4 +1,6 @@
 from rllab.algos.trpo import TRPO
+from rllab.algos.trpo_sym import TRPO_Symmetry
+from rllab.algos.ppo_clip import PPO_Clip_Sym
 from rllab.algos.trpo_mpsel import TRPOMPSel
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
@@ -14,29 +16,22 @@ import numpy as np
 import random
 
 def run_task(*_):
-    env = normalize(GymEnv("DartHopper-v1"))#, record_log=False, record_video=False))
+    env = normalize(GymEnv("DartHopper-v1", record_log=False, record_video=False))
 
-    mp_dim = 1
-    #policy_pre = joblib.load('data/trained/gradient_temp/rl_split_hopper_3models_taskinput_6432net_sd4_splitstd_maskedgrad_specbaseline_40k_70_30_unweighted_accumulate_gradient/final_policy_0.1.pkl')
-    split_dim = 0
     policy = GaussianMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(64,64),
+        hidden_sizes=(128,64),
 
         net_mode=0,
-        #split_init_net=policy_pre,
-        task_id=1, # use ellipsoid net
     )
 
     print('trainable parameter size: ', policy.get_param_values(trainable=True).shape)
 
     baseline = LinearFeatureBaseline(env_spec=env.spec, additional_dim=0)
 
-    #policy = params['policy']
-    #baseline = params['baseline']
 
-    algo = TRPO(
+    algo = PPO_Clip_Sym(
         env=env,
         policy=policy,
         baseline=baseline,
@@ -44,17 +39,15 @@ def run_task(*_):
         batch_size=20000,
 
         max_path_length=env.horizon,
-        n_itr=300,
+        n_itr=500,
 
-        discount=0.995,
-        step_size=0.01,
+        discount=0.99,
+        step_size=0.02,
         gae_lambda=0.97,
-        #mp_dim = mp_dim,
-        #epopt_epsilon = 1.0,
-        #epopt_after_iter = 0,
-        # Uncomment both lines (this and the plot parameter below) to enable plotting
-        # plot=True,
         whole_paths=False,
+        observation_permutation=np.array([0.0001, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+        action_permutation=np.array([0.0001, 1, 2]),
+        sym_loss_weight=0.0,
     )
     algo.train()
 
@@ -67,8 +60,9 @@ run_experiment_lite(
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
-    seed=5,
-    exp_name='hopper_ab1_sd5',
 
-    # plot=True,
+    seed=2,
+    exp_name='hopper_ppo_clip_sd2',
+
+    # plot=True
 )

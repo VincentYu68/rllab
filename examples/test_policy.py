@@ -58,6 +58,7 @@ if __name__ == '__main__':
     traj = 1
     ct = 0
     action_pen = []
+    com_z = []
     while ct < traj:
         if policy is not None:
             a, ainfo = policy.get_action(o)
@@ -73,6 +74,8 @@ if __name__ == '__main__':
 
         if 'action_pen' in env_info:
             action_pen.append(env_info['action_pen'])
+
+        com_z.append(o[1])
 
         rew += r
 
@@ -99,4 +102,6 @@ if __name__ == '__main__':
                 plt.plot(np.array(actions)[:, i])
         plt.figure()
         plt.plot(action_pen)
+        plt.figure()
+        plt.plot(com_z)
         plt.show()
