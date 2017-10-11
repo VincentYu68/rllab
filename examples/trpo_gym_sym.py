@@ -39,7 +39,7 @@ def run_task(*_):
         policy=policy,
         baseline=baseline,
 
-        batch_size=75000,
+        batch_size=60000,
 
         max_path_length=env.horizon,
         n_itr=500,
@@ -68,8 +68,8 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
 
-    seed=4,
-    exp_name='walker3d_symmetry1_sd4_1alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_spd1500_1500',
+    seed=13,
+    exp_name='walker3d_symmetry1_sd13_1alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_spd20002000',
 
     # plot=True
 )

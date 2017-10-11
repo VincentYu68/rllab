@@ -59,10 +59,11 @@ if __name__ == '__main__':
     ct = 0
     action_pen = []
     com_z = []
+    x_vel = []
     while ct < traj:
         if policy is not None:
             a, ainfo = policy.get_action(o)
-            act = ainfo['mean']
+            act = a#ainfo['mean']
         else:
             act = env.action_space.sample()
         actions.append(act)
@@ -82,6 +83,8 @@ if __name__ == '__main__':
         env_wrapper.render()
 
         #time.sleep(0.1)
+        if len(o) > 25:
+            x_vel.append(o[20])
 
         if d:
             ct += 1
@@ -100,8 +103,10 @@ if __name__ == '__main__':
             plt.figure()
             for i in rg:
                 plt.plot(np.array(actions)[:, i])
-        plt.figure()
-        plt.plot(action_pen)
-        plt.figure()
-        plt.plot(com_z)
-        plt.show()
+    plt.figure()
+    plt.plot(action_pen)
+    plt.figure()
+    plt.plot(com_z)
+    plt.figure()
+    plt.plot(x_vel)
+    plt.show()
