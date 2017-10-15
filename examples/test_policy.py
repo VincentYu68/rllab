@@ -60,6 +60,7 @@ if __name__ == '__main__':
     action_pen = []
     com_z = []
     x_vel = []
+    foot_contacts = []
     while ct < traj:
         if policy is not None:
             a, ainfo = policy.get_action(o)
@@ -77,6 +78,7 @@ if __name__ == '__main__':
             action_pen.append(env_info['action_pen'])
 
         com_z.append(o[1])
+        foot_contacts.append(o[-2:])
 
         rew += r
 
@@ -109,4 +111,11 @@ if __name__ == '__main__':
     plt.plot(com_z)
     plt.figure()
     plt.plot(x_vel)
+    foot_contacts = np.array(foot_contacts)
+    plt.figure()
+    plt.plot(1-foot_contacts[:, 0])
+    plt.plot(1-foot_contacts[:, 1])
     plt.show()
+
+
+
