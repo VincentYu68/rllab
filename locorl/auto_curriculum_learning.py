@@ -52,8 +52,8 @@ def get_curriculum_estimations(paths):
         avg_returns.append(np.mean(rc))
     return curriculum_candidates, avg_returns
 
-def evaluate_policy(env, policy, reps=6):
-    avg_return = 0
+def evaluate_policy(env, policy, reps=20):
+    avg_return = 0.0
     for i in range(reps):  # average performance over 10 trajectories
         o = env.reset()
         while True:
@@ -169,12 +169,16 @@ if __name__ == '__main__':
     reference_score = ref_score * progress_threshold
     reference_anchor_score = ref_score * anchor_threshold
     parallel_sampler.update_env_params({'anchor_kp':init_curriculum})
+    expected_final_performance = ref_score * 0.7 # if the final performance reaches 70% of the initial performance it should be fairly good already in most cases
 
     learning_curve = []
     for i in range(total_iterations):
         print('------ Iter ', i, ' in Training --------')
         paths = algo.sampler.obtain_samples(0)
         candidates, scores = get_curriculum_estimations(paths)
+        current_exp_score = np.linalg.norm(candidates[0])/np.linalg.norm(init_curriculum) * (ref_score - expected_final_performance) + expected_final_performance
+        reference_score = current_exp_score * progress_threshold
+        reference_anchor_score = current_exp_score * anchor_threshold
         print('Reference score: ', reference_score, reference_anchor_score)
         if not separate_testing:
             current_candidate = None
@@ -188,7 +192,7 @@ if __name__ == '__main__':
                 curriculum_evolution.append(current_candidate)
                 print('Current curriculum: ', current_candidate)
         else:
-            if scores[0] > reference_anchor_score:
+            if scores[0] > reference_anchor_score and np.linalg.norm(candidates[0]) >= 0.5:
                 directions = [np.array([-1, 0]), np.array([0, -1]), -candidates[0]/np.linalg.norm(candidates[0])]
                 int_d1 = directions[0] + directions[2]
                 int_d2 = directions[1] + directions[2]
@@ -203,6 +207,8 @@ if __name__ == '__main__':
                         closest_candidate = np.copy(found_point)
                     elif np.linalg.norm(closest_candidate) > np.linalg.norm(found_point):
                         closest_candidate = np.copy(found_point)
+                if np.linalg.norm(closest_candidate) < 0.5:
+                    closest_candidate = np.array([0, 0])
                 parallel_sampler.update_env_params({'anchor_kp': closest_candidate})
                 curriculum_evolution.append(closest_candidate)
                 print('Candidate points: ', candidate_next_anchors)
