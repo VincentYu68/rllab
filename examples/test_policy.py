@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from gym import wrappers
 
-np.random.seed(15)
+np.random.seed(1)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
@@ -55,9 +55,12 @@ if __name__ == '__main__':
 
     actions = []
 
-    traj = 1
+    traj = 10
     ct = 0
+    vel_rew = []
     action_pen = []
+    deviation_pen = []
+    rew_seq = []
     com_z = []
     x_vel = []
     foot_contacts = []
@@ -76,6 +79,11 @@ if __name__ == '__main__':
 
         if 'action_pen' in env_info:
             action_pen.append(env_info['action_pen'])
+        if 'vel_rew' in env_info:
+            vel_rew.append(env_info['vel_rew'])
+        rew_seq.append(r)
+        if 'deviation_pen' in env_info:
+            deviation_pen.append(env_info['deviation_pen'])
 
         com_z.append(o[1])
         foot_contacts.append(o[-2:])
@@ -106,13 +114,21 @@ if __name__ == '__main__':
             for i in rg:
                 plt.plot(np.array(actions)[:, i])
     plt.figure()
-    plt.plot(action_pen)
+    plt.title('rewards')
+    plt.plot(rew_seq, label='total rew')
+    plt.plot(action_pen, label='action pen')
+    plt.plot(vel_rew, label='vel rew')
+    plt.plot(deviation_pen, label='dev pen')
+    plt.legend()
     plt.figure()
+    plt.title('com z')
     plt.plot(com_z)
     plt.figure()
+    plt.title('x vel')
     plt.plot(x_vel)
     foot_contacts = np.array(foot_contacts)
     plt.figure()
+    plt.title('foot contacts')
     plt.plot(1-foot_contacts[:, 0])
     plt.plot(1-foot_contacts[:, 1])
     plt.show()

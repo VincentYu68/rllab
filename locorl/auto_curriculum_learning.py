@@ -66,7 +66,7 @@ def evaluate_policy(env, policy, reps=20):
 
 def binary_search_curriculum(env, policy, anchor, direction, threshold, max_step):
     current_min = 0.0
-    if anchor[0] / np.linalg.norm(anchor) < direction[0]:
+    if anchor[0] / np.linalg.norm(anchor) < np.abs(direction[0]):
         current_max = np.abs(anchor[0] / direction[0])
     else:
         current_max = np.abs(anchor[1] / direction[1])
@@ -169,7 +169,7 @@ if __name__ == '__main__':
     reference_score = ref_score * progress_threshold
     reference_anchor_score = ref_score * anchor_threshold
     parallel_sampler.update_env_params({'anchor_kp':init_curriculum})
-    expected_final_performance = ref_score * 0.7 # if the final performance reaches 70% of the initial performance it should be fairly good already in most cases
+    expected_final_performance = ref_score * 0.9 # if the final performance reaches 90% of the initial performance it should be fairly good already in most cases
 
     learning_curve = []
     for i in range(total_iterations):
@@ -202,6 +202,7 @@ if __name__ == '__main__':
                 closest_candidate = None
                 for direction in directions:
                     found_point = binary_search_curriculum(env, policy, candidates[0], direction, reference_score, 6)
+                    print(direction, found_point)
                     candidate_next_anchors.append(found_point)
                     if closest_candidate is None:
                         closest_candidate = np.copy(found_point)
@@ -224,11 +225,12 @@ if __name__ == '__main__':
             curriculum_evolution_np = np.array(curriculum_evolution)
             plt.plot(curriculum_evolution_np[:,0], curriculum_evolution_np[:,1])
             plt.savefig(diretory + '/curriculum_evolution.png')
-            np.savetxt(curriculum_evolution_np, diretory + '/curriculum_evolution.txt')
+            np.savetxt(diretory + '/curriculum_evolution.txt', curriculum_evolution_np)
         learning_curve.append(dict(logger._tabular)['AverageReturn'])
         plt.figure()
         plt.plot(learning_curve)
         plt.savefig(diretory + '/learning_curve.png')
+        print(diretory)
 
     algo.shutdown_worker()
     joblib.dump(policy, diretory + '/policy.pkl', compress=True)
