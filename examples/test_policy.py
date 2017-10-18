@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
     actions = []
 
-    traj = 10
+    traj = 1
     ct = 0
     vel_rew = []
     action_pen = []

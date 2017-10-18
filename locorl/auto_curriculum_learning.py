@@ -98,19 +98,19 @@ if __name__ == '__main__':
     total_iterations = 1000
 
     # load pre-trained policy
-    policy = joblib.load('data/trained/walker3d/DartWalker3d-v1_sd0_ancthres0.7_progthres0.5separate_testing/policy_990.pkl')
-    init_curriculum = np.array([100, 40])
+    policy = joblib.load('data/local/experiment/walker3d_symmetry1_sd13_1alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_spd2000_200_bnspd/policy.pkl')
+    init_curriculum = np.array([2000, 200])
 
     env_name = "DartWalker3d-v1"
     seed = 0
 
     separate_testing = True # use binary search to find candidates
-    anchor_threshold = 0.7
+    anchor_threshold = 0.8
     progress_threshold = 0.5
 
     ref_policy = joblib.load(
-        'data/local/experiment/walker3d_symmetry1_sd13_1alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_spd20002000/policy.pkl')
-    ref_curriculum = np.array([2000, 2000])
+        'data/local/experiment/walker3d_symmetry1_sd13_1alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_spd2000_200_bnspd/policy.pkl')
+    ref_curriculum = np.array([2000, 200])
 
     append = env_name+'_sd' + str(seed) + '_ancthres' + str(anchor_threshold) + '_progthres' + str(progress_threshold)
     if separate_testing:
@@ -169,7 +169,7 @@ if __name__ == '__main__':
     reference_score = ref_score * progress_threshold
     reference_anchor_score = ref_score * anchor_threshold
     parallel_sampler.update_env_params({'anchor_kp':init_curriculum})
-    expected_final_performance = ref_score * 0.9 # if the final performance reaches 90% of the initial performance it should be fairly good already in most cases
+    expected_final_performance = ref_score * 0.95 # if the final performance reaches 90% of the initial performance it should be fairly good already in most cases
 
     learning_curve = []
     for i in range(total_iterations):

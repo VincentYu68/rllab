@@ -69,7 +69,7 @@ run_experiment_lite(
     # will be used
 
     seed=13,
-    exp_name='walker3d_symmetry1_sd13_1alivebonus_2velrew_targetvelocity4_15frameskip_5en3absenergypenalty_spd2000_0',
+    exp_name='walker3d_symmetry1_sd13_1alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_spd2000_200_bnspd',
 
     # plot=True
 )
