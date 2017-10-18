@@ -30,6 +30,7 @@ class TRPO_Symmetry(NPO):
             observation_permutation = None,
             action_permutation = None,
             sym_loss_weight = 0.0001,
+            action_reg_weight = 0.0,
             **kwargs):
         if optimizer is None:
             if optimizer_args is None:
@@ -40,6 +41,7 @@ class TRPO_Symmetry(NPO):
         self.observation_permutation = observation_permutation
         self.action_permutation = action_permutation
         self.sym_loss_weight = sym_loss_weight
+        self.action_reg_weight = action_reg_weight
 
         self.obs_perm_mat = np.zeros((len(observation_permutation), len(observation_permutation)))
         self.act_per_mat = np.zeros((len(action_permutation), len(action_permutation)))
@@ -99,6 +101,8 @@ class TRPO_Symmetry(NPO):
             mean_kl = TT.mean(kl)
             surr_loss = - TT.mean(lr * advantage_var)
 
+        normal_loss = surr_loss
+
         # symmetry loss
         mirrored_obs_var = self.env.observation_space.new_tensor_variable(
             'mirrored_obs',
@@ -108,6 +112,10 @@ class TRPO_Symmetry(NPO):
         mean_act_mirrored = L.get_output(self.policy._l_mean, mirrored_obs_var)
         sym_loss = self.sym_loss_weight * TT.mean(TT.square(TT.dot(mean_act_collected, self.act_per_mat.T)-mean_act_mirrored))
         surr_loss += sym_loss
+
+        action_loss = self.action_reg_weight * (TT.mean(TT.abs_(mean_act_collected)) + 5.0*TT.mean(TT.clip(TT.abs_(mean_act_collected)-1.0, 0.0, 100.0)))
+
+        #surr_loss += action_loss
 
         input_list = [
                          obs_var,
@@ -129,6 +137,11 @@ class TRPO_Symmetry(NPO):
                 inputs=[obs_var, mirrored_obs_var],
                 outputs=[sym_loss]
             )
+
+        self._f_act_loss = ext.compile_function(
+            inputs = [obs_var],
+            outputs=[action_loss]
+        )
 
         return dict()
 
@@ -156,10 +169,12 @@ class TRPO_Symmetry(NPO):
         self.optimizer.optimize(all_input_values)
 
         sym_loss = self._f_sym_loss(samples_data["observations"], mirrored_obs)
+        act_loss = self._f_act_loss(samples_data["observations"])
 
         mean_kl = self.optimizer.constraint_val(all_input_values)
         loss_after = self.optimizer.loss(all_input_values)
-        logger.record_tabular('Symmetry Loss', sym_loss)
+        logger.record_tabular('Symmetry Loss', sym_loss[0])
+        logger.record_tabular('Action Loss', act_loss[0])
         logger.record_tabular('LossBefore', loss_before)
         logger.record_tabular('LossAfter', loss_after)
         logger.record_tabular('MeanKLBefore', mean_kl_before)
