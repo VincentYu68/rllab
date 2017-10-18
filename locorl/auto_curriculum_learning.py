@@ -52,8 +52,8 @@ def get_curriculum_estimations(paths):
         avg_returns.append(np.mean(rc))
     return curriculum_candidates, avg_returns
 
-def evaluate_policy(env, policy, reps=6):
-    avg_return = 0
+def evaluate_policy(env, policy, reps=20):
+    avg_return = 0.0
     for i in range(reps):  # average performance over 10 trajectories
         o = env.reset()
         while True:
@@ -66,7 +66,7 @@ def evaluate_policy(env, policy, reps=6):
 
 def binary_search_curriculum(env, policy, anchor, direction, threshold, max_step):
     current_min = 0.0
-    if anchor[0] / np.linalg.norm(anchor) < direction[0]:
+    if anchor[0] / np.linalg.norm(anchor) < np.abs(direction[0]):
         current_max = np.abs(anchor[0] / direction[0])
     else:
         current_max = np.abs(anchor[1] / direction[1])
@@ -98,19 +98,19 @@ if __name__ == '__main__':
     total_iterations = 1000
 
     # load pre-trained policy
-    policy = joblib.load('data/trained/walker3d/DartWalker3d-v1_sd0_ancthres0.7_progthres0.5separate_testing/policy_990.pkl')
-    init_curriculum = np.array([100, 40])
+    policy = joblib.load('data/local/experiment/walker3d_symmetry1_sd13_1alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_spd2000_200_bnspd/policy.pkl')
+    init_curriculum = np.array([2000, 200])
 
     env_name = "DartWalker3d-v1"
     seed = 0
 
     separate_testing = True # use binary search to find candidates
-    anchor_threshold = 0.7
+    anchor_threshold = 0.8
     progress_threshold = 0.5
 
     ref_policy = joblib.load(
-        'data/local/experiment/walker3d_symmetry1_sd13_1alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_spd20002000/policy.pkl')
-    ref_curriculum = np.array([2000, 2000])
+        'data/local/experiment/walker3d_symmetry1_sd13_1alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_spd2000_200_bnspd/policy.pkl')
+    ref_curriculum = np.array([2000, 200])
 
     append = env_name+'_sd' + str(seed) + '_ancthres' + str(anchor_threshold) + '_progthres' + str(progress_threshold)
     if separate_testing:
@@ -169,12 +169,16 @@ if __name__ == '__main__':
     reference_score = ref_score * progress_threshold
     reference_anchor_score = ref_score * anchor_threshold
     parallel_sampler.update_env_params({'anchor_kp':init_curriculum})
+    expected_final_performance = ref_score * 0.95 # if the final performance reaches 90% of the initial performance it should be fairly good already in most cases
 
     learning_curve = []
     for i in range(total_iterations):
         print('------ Iter ', i, ' in Training --------')
         paths = algo.sampler.obtain_samples(0)
         candidates, scores = get_curriculum_estimations(paths)
+        current_exp_score = np.linalg.norm(candidates[0])/np.linalg.norm(init_curriculum) * (ref_score - expected_final_performance) + expected_final_performance
+        reference_score = current_exp_score * progress_threshold
+        reference_anchor_score = current_exp_score * anchor_threshold
         print('Reference score: ', reference_score, reference_anchor_score)
         if not separate_testing:
             current_candidate = None
@@ -188,7 +192,7 @@ if __name__ == '__main__':
                 curriculum_evolution.append(current_candidate)
                 print('Current curriculum: ', current_candidate)
         else:
-            if scores[0] > reference_anchor_score:
+            if scores[0] > reference_anchor_score and np.linalg.norm(candidates[0]) >= 0.5:
                 directions = [np.array([-1, 0]), np.array([0, -1]), -candidates[0]/np.linalg.norm(candidates[0])]
                 int_d1 = directions[0] + directions[2]
                 int_d2 = directions[1] + directions[2]
@@ -198,11 +202,14 @@ if __name__ == '__main__':
                 closest_candidate = None
                 for direction in directions:
                     found_point = binary_search_curriculum(env, policy, candidates[0], direction, reference_score, 6)
+                    print(direction, found_point)
                     candidate_next_anchors.append(found_point)
                     if closest_candidate is None:
                         closest_candidate = np.copy(found_point)
                     elif np.linalg.norm(closest_candidate) > np.linalg.norm(found_point):
                         closest_candidate = np.copy(found_point)
+                if np.linalg.norm(closest_candidate) < 0.5:
+                    closest_candidate = np.array([0, 0])
                 parallel_sampler.update_env_params({'anchor_kp': closest_candidate})
                 curriculum_evolution.append(closest_candidate)
                 print('Candidate points: ', candidate_next_anchors)
@@ -218,11 +225,12 @@ if __name__ == '__main__':
             curriculum_evolution_np = np.array(curriculum_evolution)
             plt.plot(curriculum_evolution_np[:,0], curriculum_evolution_np[:,1])
             plt.savefig(diretory + '/curriculum_evolution.png')
-            np.savetxt(curriculum_evolution_np, diretory + '/curriculum_evolution.txt')
+            np.savetxt(diretory + '/curriculum_evolution.txt', curriculum_evolution_np)
         learning_curve.append(dict(logger._tabular)['AverageReturn'])
         plt.figure()
         plt.plot(learning_curve)
         plt.savefig(diretory + '/learning_curve.png')
+        print(diretory)
 
     algo.shutdown_worker()
     joblib.dump(policy, diretory + '/policy.pkl', compress=True)

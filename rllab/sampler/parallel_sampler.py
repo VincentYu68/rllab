@@ -95,7 +95,13 @@ def _worker_set_env_params(G,params,scope=None):
 def _worker_collect_one_path(G, max_path_length, scope=None):
     G = _get_scoped_G(G, scope)
 
-    if not hasattr(G.env._wrapped_env, 'env'):
+    path = rollout(G.env, G.policy, max_path_length)
+    if 'broke_sim' in path['env_infos']:
+        while path['env_infos']['broke_sim'][-1]:
+            path = rollout(G.env, G.policy, max_path_length)
+    return [path], len(path["rewards"])
+
+    '''if not hasattr(G.env._wrapped_env, 'env'):
         if G.ensemble_dynamics['target_task'] is not None:
             path = rollout(G.env, G.policy, max_path_length, resample_mp=None, target_task = G.ensemble_dynamics['target_task'])
         else:
@@ -153,7 +159,7 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
         path = rollout(G.env, G.policy, max_path_length, resample_mp=model_parameter)
     else:
         path = rollout(G.env, G.policy, max_path_length)
-    return [path], len(path["rewards"])
+    return [path], len(path["rewards"])'''
 
 
 def _worker_update_mr(G, paramname, newval, scope):

@@ -78,7 +78,7 @@ class GymEnv(Env, Serializable):
                 video_schedule = NoVideoSchedule()
             else:
                 if video_schedule is None:
-                    video_schedule = CappedCubicVideoSchedule()
+                    video_schedule = FixedIntervalVideoSchedule(2)#CappedCubicVideoSchedule()
             self.env = gym.wrappers.Monitor(self.env, log_dir, video_callable=video_schedule, force=True)
             self.monitoring = True
 
