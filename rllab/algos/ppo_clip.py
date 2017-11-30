@@ -34,6 +34,8 @@ class PPO_Clip_Sym(NPO):
             action_permutation = None,
             sym_loss_weight = 0.0001,
             clip_param = 0.2,
+            adam_batchsize = 128,
+            adam_epochs = 10,
             **kwargs):
         if optimizer is None:
             if optimizer_args is None:
@@ -46,6 +48,9 @@ class PPO_Clip_Sym(NPO):
         self.sym_loss_weight = sym_loss_weight
 
         self.clip_param = clip_param
+
+        self.adam_batchsize = adam_batchsize
+        self.adam_epochs = adam_epochs
 
         self.obs_perm_mat = np.zeros((len(observation_permutation), len(observation_permutation)))
         self.act_per_mat = np.zeros((len(action_permutation), len(action_permutation)))
@@ -94,16 +99,14 @@ class PPO_Clip_Sym(NPO):
             valid_var = None
 
         dist_info_vars = self.policy.dist_info_sym(obs_var, state_info_vars)
-        kl = dist.kl_sym(old_dist_info_vars, dist_info_vars)
         lr = dist.likelihood_ratio_sym(action_var, old_dist_info_vars, dist_info_vars)
         if self.truncate_local_is_ratio is not None:
             lr = TT.minimum(self.truncate_local_is_ratio, lr)
         if is_recurrent:
-            mean_kl = TT.sum(kl * valid_var) / TT.sum(valid_var)
             surr_loss = - TT.sum(lr * advantage_var * valid_var) / TT.sum(valid_var)
         else:
-            mean_kl = TT.mean(kl)
-            surr_loss = - TT.mean(TT.min([lr * advantage_var, TT.clip(lr, 1-self.clip_param, 1+self.clip_param) * advantage_var]))
+            std_advar = (advantage_var - TT.mean(advantage_var))/TT.std(advantage_var)
+            surr_loss = - TT.mean(TT.min([lr * std_advar, TT.clip(lr, 1-self.clip_param, 1+self.clip_param) * std_advar]))
 
         # symmetry loss
         mirrored_obs_var = self.env.observation_space.new_tensor_variable(
@@ -135,9 +138,27 @@ class PPO_Clip_Sym(NPO):
                 outputs=[sym_loss]
             )
 
-        self.train = theano.function(input_list, surr_loss,
-                                     updates=self.policy.get_params()
-                                             + self.adam_updates(surr_loss, self.policy.get_params(), learning_rate=0.001).items())
+        grad = theano.grad(
+            surr_loss, wrt=self.policy.get_params(trainable=True), disconnected_inputs='warn')
+
+        self._f_grad = ext.compile_function(
+            inputs=input_list,
+            outputs=grad,
+        )
+
+        self._f_loss = ext.compile_function(input_list+list(),
+            surr_loss
+        )
+
+        self.m_prev = []
+        self.v_prev = []
+        for i in range(len(self.policy.get_params(trainable=True))):
+            self.m_prev.append(np.zeros(self.policy.get_params(trainable=True)[i].get_value().shape, dtype=self.policy.get_params(trainable=True)[i].get_value().dtype))
+            self.v_prev.append(np.zeros(self.policy.get_params(trainable=True)[i].get_value().shape,
+                                        dtype=self.policy.get_params(trainable=True)[i].get_value().dtype))
+        self.t_prev = 0
+
+        self.optimizer.update_opt(surr_loss, self.policy, input_list)
 
         return dict()
 
@@ -159,10 +180,16 @@ class PPO_Clip_Sym(NPO):
 
         if self.policy.recurrent:
             all_input_values += (samples_data["valids"],)
+
         loss_before = self.optimizer.loss(all_input_values)
 
-        #self.optimizer.optimize(all_input_values)
-        self.train(all_input_values)
+        for iepoch in range(self.adam_epochs):
+            sortinds = np.random.permutation(len(all_input_values[0]))
+            for istart in range(0, len(all_input_values[0]), self.adam_batchsize):
+                input_data = []
+                for j in range(len(all_input_values)):
+                    input_data.append(all_input_values[j][sortinds[istart:istart+self.adam_batchsize]])
+                self.adam_updates(input_data)
 
         sym_loss = self._f_sym_loss(samples_data["observations"], mirrored_obs)
 
@@ -200,30 +227,19 @@ class PPO_Clip_Sym(NPO):
 
         self.shutdown_worker()
 
-    def adam_updates(self, loss, params, learning_rate=0.001, beta1=0.9,
+    def adam_updates(self, data, learning_rate=0.0003, beta1=0.9,
                      beta2=0.999, epsilon=1e-8):
 
-        all_grads = T.grad(loss, params)
-        t_prev = theano.shared(np.array(0, dtype=np.float32))
-        updates = collections.OrderedDict()
+        t = self.t_prev + 1
+        a_t = learning_rate * np.sqrt(1 - beta2 ** t) / (1 - beta1 ** t)
+        gradient = self._f_grad(*data)
+        for i in range(len(gradient)):
+            m_t = beta1 * self.m_prev[i] + (1 - beta1) * gradient[i]
+            v_t = beta2 * self.v_prev[i] + (1 - beta2) * gradient[i] ** 2
+            step = a_t * m_t / (np.sqrt(v_t) + epsilon)
 
-        t = t_prev + 1
-        a_t = learning_rate * TT.sqrt(1 - beta2 ** t) / (1 - beta1 ** t)
+            self.m_prev[i] = m_t
+            self.v_prev[i] = v_t
+            self.policy.get_params(trainable=True)[i].set_value(self.policy.get_params(trainable=True)[i].get_value() - step)
 
-        for param, g_t in zip(params, all_grads):
-            value = param.get_value(borrow=True)
-            m_prev = theano.shared(np.zeros(value.shape, dtype=value.dtype),
-                                   broadcastable=param.broadcastable)
-            v_prev = theano.shared(np.zeros(value.shape, dtype=value.dtype),
-                                   broadcastable=param.broadcastable)
-
-            m_t = beta1 * m_prev + (1 - beta1) * g_t
-            v_t = beta2 * v_prev + (1 - beta2) * g_t ** 2
-            step = a_t * m_t / (TT.sqrt(v_t) + epsilon)
-
-            updates[m_prev] = m_t
-            updates[v_prev] = v_t
-            updates[param] = param - step
-
-        updates[t_prev] = t
-        return updates
+        self.t_prev = t

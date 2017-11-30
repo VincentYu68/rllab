@@ -65,6 +65,7 @@ if __name__ == '__main__':
     x_vel = []
     foot_contacts = []
     d=False
+    init_p = env.env.robot_skeleton.q[0]
     while ct < traj:
         if policy is not None:
             a, ainfo = policy.get_action(o)
@@ -76,8 +77,7 @@ if __name__ == '__main__':
             lowa = policy.lowlevel_action(o, act)
             o, r, d, env_info = env_wrapper.step(lowa)
         else:
-            if not d:
-                o, r, d, env_info = env_wrapper.step(act)
+            o, r, d, env_info = env_wrapper.step(act)
 
         if 'action_pen' in env_info:
             action_pen.append(env_info['action_pen'])
@@ -94,14 +94,16 @@ if __name__ == '__main__':
 
         env_wrapper.render()
 
-        time.sleep(0.1)
+        #time.sleep(0.1)
         if len(o) > 25:
             x_vel.append(env.env.robot_skeleton.dq[0])
 
-        #if d:
-        #    ct += 1
-        #    print('reward: ', rew)
-        #    o=env_wrapper.reset()
+        if d:
+            ct += 1
+            print('reward: ', rew)
+            print('travelled dist: ', env.env.robot_skeleton.q[0] - init_p)
+            o=env_wrapper.reset()
+            init_p = env.env.robot_skeleton.q[0]
             #break
     print('avg rew ', rew / traj)
 

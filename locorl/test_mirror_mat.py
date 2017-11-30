@@ -39,7 +39,7 @@ if __name__ == '__main__':
     q = env.env.robot_skeleton.q
 
     cur_dof = 0
-    t_inc = 0.01
+    t_inc = 0.03
     cur_val = 0.5
     T = 0.0
     while True:

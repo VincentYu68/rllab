@@ -24,7 +24,7 @@ def run_task(*_):
 
         net_mode=0,
     )
-    #policy = joblib.load('data/local/experiment/walker3d_symmetry1_sd4_1alivebonus_2velrew_targetvelocity2_15frameskip_2en1absenergypenalty_spd2k2k/policy.pkl')
+    #policy = joblib.load('data/local/experiment/walker3d_symmetry1_sd13_2alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_2d_hardvelenforce_contsupport/policy.pkl')
 
     # increase policy std a bit for exploration
     #policy.get_params()[-1].set_value(policy.get_params()[-1].get_value() + 0.5)
@@ -53,7 +53,7 @@ def run_task(*_):
         #action_permutation=np.array([3,4,5, 0.00001,1,2]),
         action_permutation=np.array([-0.0001, -1, 2, 9, -10, -11, 12, 13, -14, 3, -4, -5, 6, 7, -8]),
 
-        sym_loss_weight=1.0,
+        sym_loss_weight=2.0,
         whole_paths=False,
     )
     algo.train()
@@ -62,14 +62,14 @@ def run_task(*_):
 run_experiment_lite(
     run_task,
     # Number of parallel workers for sampling
-    n_parallel=8,
+    n_parallel=4,
     # Only keep the snapshot parameters for the last iteration
     snapshot_mode="last",
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
 
-    seed=13,
-    exp_name='walker3d_symmetry1_sd13_1alivebonus_2velrew_targetvelocity1_15frameskip_5en1absenergypenalty_spd2000_200_bnspd',
+    seed=12,
+    exp_name='walker3d_symmetry2_sd12_2alivebonus_2velrew_targetvelocity4_15frameskip_5en1absenergypenalty_2d_contsupport2',
 
     # plot=True
 )
